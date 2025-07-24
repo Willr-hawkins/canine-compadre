@@ -1,0 +1,10 @@
+tasks:
+  - init: |
+      python3 -m venv venv
+      source venv/bin/activate
+      pip install -r requirements.txt
+    command: |
+      source venv/bin/activate
+ports:
+  - port: 8000
+    onOpen: open-browser
