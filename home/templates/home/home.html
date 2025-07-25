@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+    <div class="home-container">
+        <div class="logo-container align-items-center text-center">
+            <img class="header-logo" src="{% static 'images/Canine-Compadre-Logo.png' %}" alt="">
+        </div>
+        <div class="welcome-text">
+            <h3 class="text-center">Welcome to Canine Compadre — Where Every Walk Builds a Bond</h3>
+            <br>
+            <p class="text-center mb-3">At Canine Compadre, we offer tailored dog walking services designed to meet your pet’s unique needs. 
+                But we don’t just walk dogs — we build lasting connections with them and with you. Trust, care, and companionship are at the heart of everything we do.</p>
+            <p class="text-center">Here, you can get to know Alex Bevis, the passionate dog lover behind the leash, explore our range of tailored dog walking services,
+                 check out our pricing, and easily book walks for your four-legged companion. Whether your pup loves long adventures or short strolls, we’re here to make every outing fun, safe, and full of tail wags!</p>
+        </div>
+        <div class=" align-items-center text-center">
+            <a class="continue-arrow" href=""><i class="bi bi-arrow-down"></i></a>
+        </div>
+    </div>
+{% endblock %}
