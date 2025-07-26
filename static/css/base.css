@@ -3,32 +3,48 @@ html, body {
     margin: 0;
     padding: 0;
     overflow-x: hidden;
+    scroll-behavior: smooth;
 }
 
 body {
     display: flex;
     flex-direction: column;
-    min-height: 100vh;
+    height: 100vh;
     width: 100%;
-    background-color: #1F5C33;
+    overflow: auto;
+    background-image: url(../images/canine-compadre-background.png);
+    padding-top: 80px;
+}
+
+.scroll-container {
+    scroll-snap-type: y mandatory;
+    overflow-y: scroll;
+    height: 100vh;
+    scroll-behavior: smooth;
+}
+
+.snap-container {
+    scroll-snap-align: start;
+    height: 100vh;
+    padding-top: 70px;
+    box-sizing: border-box;
 }
 
 /* NavBar */
 .navbar {
     background-color: #F5EFE0;
     color: #292F3D;
-    margin-top: 10px;
+    margin-top: 20px;
+    margin-left: auto;
+    margin-right: auto;
     border-radius: 15px;
-}
-
-.nav-img {
-    max-height: 120px;
-    max-width: 120px;
+    width: 90%;
 }
 
 .navbar-brand {
     font-size: 1.6rem;
-    font-weight: 600;
+    font-weight: 800;
+    color: #2D4D38;
 }
 
 .navbar-title {
@@ -45,12 +61,14 @@ body {
     font-weight: 500;
 }
 
-/* Home */
+/* Home section */
 .home-container {
+    background: rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(5px);
     border: 6px solid #F5EFE0;
-    border-radius: 20px;
-    margin: 30px;
-    padding: 25px;
+    border-radius: 1rem;
+    margin: 2rem 2rem;
+    padding: 4rem 2rem;
 }
 
 .header-logo {
@@ -81,4 +99,21 @@ body {
 
 .bi-arrow-down:hover {
     transform: scale(1.3);
+}
+
+/* About Section */
+.about-container {
+    background: rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(5px);
+    border: 6px solid #F5EFE0;
+    border-radius: 1rem;
+    margin: 2rem 2rem;
+    padding: 4rem 2rem;
+    color: #F5EFE0;
+}
+
+.about-img-conatiner {
+    border: 3px solid #292F3D;
+    border-radius: 1rem;
+    
 }
