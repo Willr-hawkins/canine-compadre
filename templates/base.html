@@ -50,10 +50,10 @@
                     <div class="collapse navbar-collapse justify-content-end" id="mainNavbar">
                         <ul class="navbar-nav d-flex flex-row flex-lg-row justify-content-center gap-3">
                             <li class="nav-item">
-                                <a class="nav-link active" aria-current="page" href="#">Home</a>
+                                <a class="nav-link active" aria-current="page" href="#home">Home</a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link" href="#">About Me</a>
+                                <a class="nav-link" href="#about">About Me</a>
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link" href="#">Services</a>
@@ -70,9 +70,10 @@
             </nav>
         </div>
     
-    <main class="scroll-container"></main>
+    <div class="scroll-container">
         {% block content %}
         {% endblock %}
-    </main>
+    </div>
+
 </body>
 </html>
