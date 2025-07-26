@@ -2,20 +2,39 @@
 {% load static %}
 
 {% block content %}
-    <div class="home-container">
-        <div class="logo-container align-items-center text-center">
-            <img class="header-logo" src="{% static 'images/Canine-Compadre-Logo.png' %}" alt="">
+    <!-- Section 1: Hero / Intro -->
+    <section id="home" class="snap-section d-flex flex-column justify-content-center align-items-center text-center">
+        <div class="home-container container">
+            <div class="logo-container">
+                <img class="header-logo" src="{% static 'images/Canine-Compadre-Logo.png' %}" alt="Canine Compadre Logo">
+            </div>
+            <div class="welcome-text container">
+                <h3>Welcome to Canine Compadre — Where Every Walk Builds a Bond</h3>
+                <p>At Canine Compadre, we offer tailored dog walking services designed to meet your pet’s unique needs. 
+                    But we don’t just walk dogs — we build lasting connections with them and with you. Trust, care, and companionship are at the heart of everything we do.</p>
+                <p>Here, you can get to know Alex Bevis, the passionate dog lover behind the leash, explore our range of tailored dog walking services,
+                    check out our pricing, and easily book walks for your four-legged companion. Whether your pup loves long adventures or short strolls,
+                    we’re here to make every outing fun, safe, and full of tail wags!</p>
+            </div>
+            <a class="continue-arrow" href="#about"><i class="bi bi-arrow-down fs-2"></i></a>
         </div>
-        <div class="welcome-text">
-            <h3 class="text-center">Welcome to Canine Compadre — Where Every Walk Builds a Bond</h3>
-            <br>
-            <p class="text-center mb-3">At Canine Compadre, we offer tailored dog walking services designed to meet your pet’s unique needs. 
-                But we don’t just walk dogs — we build lasting connections with them and with you. Trust, care, and companionship are at the heart of everything we do.</p>
-            <p class="text-center">Here, you can get to know Alex Bevis, the passionate dog lover behind the leash, explore our range of tailored dog walking services,
-                 check out our pricing, and easily book walks for your four-legged companion. Whether your pup loves long adventures or short strolls, we’re here to make every outing fun, safe, and full of tail wags!</p>
+    </section>
+
+    <!-- Section 2: About -->
+    <section id="about" class="snap-section d-flex justify-content-center align-items-center text-center">
+        <div class="about-container container">
+            <h2>About Me</h2>
+            <hr>
+            <div class="row">
+                <div class="col-6">
+                    <p>Hi my name is Alex Bevis.</p>
+                </div>
+                <div class="col-6"> 
+                    <div class="about-img-container">
+                        <img src="{% static 'images/canine-compadre-about.png' %}" alt="">
+                    </div>
+                </div>
+            </div>
         </div>
-        <div class=" align-items-center text-center">
-            <a class="continue-arrow" href=""><i class="bi bi-arrow-down"></i></a>
-        </div>
-    </div>
+    </section>
 {% endblock %}
