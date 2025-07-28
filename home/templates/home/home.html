@@ -55,46 +55,103 @@
                     My goal is to offer a service that’s not only trustworthy but full of genuine love for every dog I meet.
                 </p>
             </div>
-            <a class="continue-arrow justify-content-center" href="#Services"><i class="bi bi-arrow-down fs-2"></i></a>
         </div>
     </section>
 
-    <!-- Section 2: About -->
-    <section id="about" class="snap-section d-flex justify-content-center align-items-center">
-        <div class="about-container container">
-            <h2 class="text-center fs-1">About Me</h2>
+    <!-- Section 3: Services -->
+    <section id=services class="snap-section d-flex justify-content-center align-items-center">
+        <div class="services-container container">
+            <h2 class="text-center fs-1">Click the service you are interested in to find out more!</h2>
             <hr>
+            <h3 class="text-center">At Canine Compadre, we offer two tailored dog walking services to meet your pet's unique needs.</h3>
+            <br>
+            <p class="text-center"><b>Group Walks</b> ~ Our primary service features socialized group walks available twice daily, seven days a week. 
+                We also offer occasional evening walks for pet parents who work night shifts, ensuring your furry friend gets the exercise they need regardless of your schedule.</p>
+            <br>
+            <p class="text-center"><b>Individual Walks</b> - For dogs who prefer one-on-one attention or don't socialize well with other pets, we provide personalized individual walks.
+                These private sessions are scheduled by appointment to accommodate your dog's specific needs and your preferred timing.</p>
+            <br>
             <div class="row">
-                <div class="col-6">
-                    <p class="about-me-text">
-                        Hi, I’m Alex Bevis, and I’m lucky to call the beautiful village of Croyde in North Devon my home.
-                        After being made redundant, I saw it as the perfect opportunity to follow a passion that’s always
-                        been close to my heart — dogs.
-                        I’ve always had a deep love and respect for animals, especially my own dog Chester,
-                        a gentle and loyal Ridgeback who’s been my best companion through thick and thin.
-                    </p>
-                    <p class="about-me-text col-12">
-                        Starting a dog walking business felt like a natural next step.
-                        I’ve grown up surrounded by dogs and understand just how important they are to our lives — they’re
-                        not just pets, they’re family.
-                        I’m friendly, reliable, and deeply rooted in the local community, with many friends and connections
-                        who know me as someone you can count on.
-                    </p>
+                <div class="col-12 col-md-6">
+                    <div class="card services-card" style="width: 18rem;">
+                        <img src="{% static 'images/canine-compadre-group-walk.png' %}" class="card-img-top" alt="...">
+                        <div class="card-body">
+                            <p class="card-text text-center"><a href="">Group Walk <i class="bi bi-arrow-right"></i></a></p>
+                        </div>
+                    </div>
                 </div>
-                <div class="col-6">
-                    <div class="about-img-container">
-                        <img src="{% static 'images/canine-compadre-about.png' %}" alt="">
+                <div class="col-12 col-md-6">
+                    <div class="card services-card" style="width: 18rem;">
+                        <img src="{% static 'images/canine-compadre-single-walk.png' %}" class="card-img-top" alt="...">
+                        <div class="card-body">
+                            <p class="card-text text-center"><a href="">Individual Walk <i class="bi bi-arrow-right"></i></a></p>
+                        </div>
                     </div>
                 </div>
             </div>
-            <div>
-                <p class="about-me-text">
-                    Whether it’s rain or shine, I’m out enjoying the fresh coastal air with Chester, and I’d love nothing
-                    more than to give your dog the same level of care, energy, and attention.
-                    My goal is to offer a service that’s not only trustworthy but full of genuine love for every dog I meet.
-                </p>
+        </div>
+    </section>
+
+    <!-- Section 4: Pricing -->
+    <section id="pricing" class="snap-section d-flex justify-content-center align-items-center">
+        <div class="pricing-container container">
+            <h2 class="text-center fs-1">Prices</h2>
+            <hr>
+            <div class="col-12">
+                <h3>Standard Prices</h3>
+                <table class="table table-dark table-lg table-striped table-bordered equal-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Service</th>
+                            <th scope="col">Price</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <th scope="row">Group Walk</th>
+                            <td>£11</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Individual Walk</th>
+                            <td>£14.50</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Evening Group Walk</th>
+                            <td>£12.50</td>
+                        </tr>
+                            <th scope="row">Evening Individual Walk</th>
+                            <td>£17.50</td>
+                        <tr></tr>
+                    </tbody>
+                </table>
+                <br>
+                <h3>Discounted Prices</h3>
+                <table class="table table-dark table-lg table-striped table-bordered equal-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Service (Blue Light Card)</th>
+                            <th scope="col">Price</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <th scope="row">Group Walk</th>
+                            <td>£9.90</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Individual Walk</th>
+                            <td>£13</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Evening Group Walk</th>
+                            <td>£11.25</td>
+                        </tr>
+                            <th scope="row">Evening Individual Walk</th>
+                            <td>£15.75</td>
+                        <tr></tr>
+                    </tbody>
+                </table>
             </div>
-            <a class="continue-arrow justify-content-center" href="#Services"><i class="bi bi-arrow-down fs-2"></i></a>
         </div>
     </section>
 {% endblock %}

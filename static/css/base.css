@@ -115,3 +115,51 @@ body {
     font-size: 1.3rem;
     font-weight: 400;
 }
+
+/* Services section */
+.services-container {
+    background: rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(5px);
+    border: 6px solid #F5EFE0;
+    border-radius: 1rem;
+    padding: 2rem;
+    color: #F5EFE0;
+}
+
+.services-container p {
+    font-size: 1.3rem;
+}
+
+.services-card {
+    border: 5px solid #F5EFE0;
+    border-radius: 0.6rem;
+    margin: 0 auto;
+    background: rgba(0, 0, 0, 0.4);
+}
+
+.services-card .card-text a {
+    text-decoration: none;
+    color: #F5EFE0;
+    font-size: 1.3rem;
+    font-weight: 600;
+}
+
+/* Pricing section */
+.pricing-container {
+    background: rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(5px);
+    border: 6px solid #F5EFE0;
+    border-radius: 1rem;
+    padding: 2rem;
+    color: #F5EFE0;
+}
+
+.equal-table th:first-child,
+.equal-table td:first-child {
+    width: 70%;
+}
+
+.equal-table th:last-child,
+.equal-table td:last-child {
+    width: 30%;
+}
