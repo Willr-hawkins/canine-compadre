@@ -61,22 +61,17 @@
     <!-- Section 3: Services -->
     <section id=services class="snap-section d-flex justify-content-center align-items-center">
         <div class="services-container container">
-            <h2 class="text-center fs-1">Click the service you are interested in to find out more!</h2>
+            <h2 class="text-center fs-2">At Canine Compadre, we offer two tailored dog walking services to meet your pet's unique needs.</h2>
             <hr>
-            <h3 class="text-center">At Canine Compadre, we offer two tailored dog walking services to meet your pet's unique needs.</h3>
+            <h4 class="text-center">Click the service you are interested in to find out more!</h4>
             <br>
-            <p class="text-center"><b>Group Walks</b> ~ Our primary service features socialized group walks available twice daily, seven days a week. 
-                We also offer occasional evening walks for pet parents who work night shifts, ensuring your furry friend gets the exercise they need regardless of your schedule.</p>
-            <br>
-            <p class="text-center"><b>Individual Walks</b> - For dogs who prefer one-on-one attention or don't socialize well with other pets, we provide personalized individual walks.
-                These private sessions are scheduled by appointment to accommodate your dog's specific needs and your preferred timing.</p>
-            <br>
+
             <div class="row">
                 <div class="col-12 col-md-6">
                     <div class="card services-card" style="width: 18rem;">
                         <img src="{% static 'images/canine-compadre-group-walk.png' %}" class="card-img-top" alt="...">
                         <div class="card-body">
-                            <p class="card-text text-center"><a href="">Group Walk <i class="bi bi-arrow-right"></i></a></p>
+                            <p class="card-text text-center"><a href="#" class="service-link" data-service="group">Group Walk <i class="bi bi-arrow-right"></i></a></p>
                         </div>
                     </div>
                 </div>
@@ -84,10 +79,15 @@
                     <div class="card services-card" style="width: 18rem;">
                         <img src="{% static 'images/canine-compadre-single-walk.png' %}" class="card-img-top" alt="...">
                         <div class="card-body">
-                            <p class="card-text text-center"><a href="">Individual Walk <i class="bi bi-arrow-right"></i></a></p>
+                            <p class="card-text text-center"><a href="#" class="service-link" data-service="individual">Individual Walk <i class="bi bi-arrow-right"></i></a></p>
                         </div>
                     </div>
                 </div>
+            </div>
+
+            <!-- Dynamic service detials will appear here -->
+            <div id="service-details" class="mt-4">
+
             </div>
         </div>
     </section>
@@ -154,4 +154,41 @@
             </div>
         </div>
     </section>
+
+    <!-- JavaScript for services toggle functionality -->
+     <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const serviceDetails = document.getElementById('service-details');
+
+            const content = {
+                group: `
+                    <div class="service-description p-4 mt-2">
+                        <h4 style="text-decoration: underline;">Group Walks</h4>
+                        <p>Our primary service features socialized group walks available twice daily, seven days a week.
+                        These walks allow dogs to interact, exercise, and enjoy the great outdoors together.
+                        We also offer occasional evening walks for pet parents who work night shifts.</p>
+                    </div>
+                `,
+                individual: `
+                    <div class="service-description p-4 mt-2">
+                        <h4 style="text-decoration: underline;">Individual Walks</h4>
+                        <p>We provide one-on-one walks for dogs that need personalized attention or don’t do well with others.
+                        These are scheduled by appointment to match your dog's needs and your availability.</p>
+                        <p class="text-center mt-3"><strong>Please note: These walks require approval and booking confirmation.</strong></p>
+                    </div>
+                `
+            };
+
+            document.querySelectorAll('.service-link').forEach(link => {
+                link.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    const type = this.dataset.service;
+                    if (content[type]) {
+                        serviceDetails.innerHTML = content[type];
+                    }
+                });
+            });
+        });
+    </script>
 {% endblock %}
+
