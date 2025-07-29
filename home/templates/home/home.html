@@ -20,35 +20,30 @@
         </div>
     </section>
 
-    <!-- Section 2: About -->
+    <!-- Section 2: About Me -->
     <section id="about" class="snap-section d-flex justify-content-center align-items-center">
         <div class="about-container container">
             <h2 class="text-center fs-1">About Me</h2>
             <hr>
-            <div class="row">
-                <div class="col-6">
-                    <p class="about-me-text">
-                        Hi, I’m Alex Bevis, and I’m lucky to call the beautiful village of Croyde in North Devon my home.
-                        After being made redundant, I saw it as the perfect opportunity to follow a passion that’s always
-                        been close to my heart — dogs.
-                        I’ve always had a deep love and respect for animals, especially my own dog Chester,
-                        a gentle and loyal Ridgeback who’s been my best companion through thick and thin.
-                    </p>
-                    <p class="about-me-text col-12">
-                        Starting a dog walking business felt like a natural next step.
-                        I’ve grown up surrounded by dogs and understand just how important they are to our lives — they’re
-                        not just pets, they’re family.
-                        I’m friendly, reliable, and deeply rooted in the local community, with many friends and connections
-                        who know me as someone you can count on.
-                    </p>
-                </div>
-                <div class="col-6">
-                    <div class="about-img-container">
-                        <img src="{% static 'images/canine-compadre-about.png' %}" alt="">
-                    </div>
-                </div>
-            </div>
-            <div>
+            <div class="about-text">
+                <img src="{% static 'images/canine-compadre-about.png' %}" alt="Alex Bevis" class="about-img-float">
+    
+                <p class="about-me-text">
+                    Hi, I’m Alex Bevis, and I’m lucky to call the beautiful village of Croyde in North Devon my home.
+                    After being made redundant, I saw it as the perfect opportunity to follow a passion that’s always
+                    been close to my heart — dogs.
+                    I’ve always had a deep love and respect for animals, especially my own dog Chester,
+                    a gentle and loyal Ridgeback who’s been my best companion through thick and thin.
+                </p>
+    
+                <p class="about-me-text">
+                    Starting a dog walking business felt like a natural next step.
+                    I’ve grown up surrounded by dogs and understand just how important they are to our lives — they’re
+                    not just pets, they’re family.
+                    I’m friendly, reliable, and deeply rooted in the local community, with many friends and connections
+                    who know me as someone you can count on.
+                </p>
+    
                 <p class="about-me-text">
                     Whether it’s rain or shine, I’m out enjoying the fresh coastal air with Chester, and I’d love nothing
                     more than to give your dog the same level of care, energy, and attention.
@@ -68,7 +63,7 @@
 
             <div class="row">
                 <div class="col-12 col-md-6">
-                    <div class="card services-card" style="width: 18rem;">
+                    <div class="card services-card group-service-card" style="width: 18rem;">
                         <img src="{% static 'images/canine-compadre-group-walk.png' %}" class="card-img-top" alt="...">
                         <div class="card-body">
                             <p class="card-text text-center"><a href="#" class="service-link" data-service="group">Group Walk <i class="bi bi-arrow-right"></i></a></p>
@@ -76,7 +71,7 @@
                     </div>
                 </div>
                 <div class="col-12 col-md-6">
-                    <div class="card services-card" style="width: 18rem;">
+                    <div class="card services-card individual-service-card" style="width: 18rem;">
                         <img src="{% static 'images/canine-compadre-single-walk.png' %}" class="card-img-top" alt="...">
                         <div class="card-body">
                             <p class="card-text text-center"><a href="#" class="service-link" data-service="individual">Individual Walk <i class="bi bi-arrow-right"></i></a></p>
