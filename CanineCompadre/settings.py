@@ -28,7 +28,7 @@ SECRET_KEY = os.environ.get('SECRET_KEY' ,'django-insecure-&&+-7s@bc$kngd$1r0^cg
 DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'
 
 ALLOWED_HOSTS = [
-    'canine-compadre.onrender.com',
+    'caninecompadre.onrender.com',
     '8000-willrhawkin-caninecompa-qq2mvid0b8j.ws-eu120.gitpod.io',
     'localhost',
     '127.0.0.1'
@@ -37,7 +37,7 @@ ALLOWED_HOSTS = [
 # Trusted origins
 CSRF_TRUSTED_ORIGINS = [
     'https://8000-willrhawkin-caninecompa-qq2mvid0b8j.ws-eu120.gitpod.io'
-    'https://canine-compadre.onrender.com',
+    'https://caninecompadre.onrender.com/',
 ]
 
 # Application definition
