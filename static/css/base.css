@@ -6,6 +6,10 @@ body {
     background-image: url(../images/canine-compadre-background.png);
 }
 
+p {
+    font-size: 1.3rem;
+}
+
 .scroll-container {
     scroll-snap-type: y mandatory;
     overflow-y: scroll;
@@ -21,8 +25,6 @@ body {
     scroll-snap-align: center;
     scroll-snap-stop: always;
 }
-
-
 
 /* NavBar */
 .navbar {
@@ -56,6 +58,28 @@ body {
     font-weight: 500;
 }
 
+.navbar-toggler {
+    border: none;
+    outline: none;
+    box-shadow: none;
+    padding: 0.25rem 0.5rem;
+    background-color: transparent;
+    margin-left: auto; /* push to far right */
+}
+
+.navbar-toggler:focus,
+.navbar-toggler:active {
+    outline: none;
+    box-shadow: none;
+    background-color: transparent;
+}
+
+.navbar-toggler-icon {
+    width: 1.5em;
+    height: 1.5em;
+    background-size: contain;
+}
+
 /* Home section */
 .home-container {
     background: rgba(0, 0, 0, 0.3);
@@ -76,7 +100,6 @@ body {
 .welcome-text {
     color: #F5EFE0;
     font-weight: 400;
-    font-size: 1.3rem;
     margin-top: 35px;
 }
 
@@ -106,15 +129,15 @@ body {
 }
 
 .about-img-float {
-    float: right;                    /* Float the image to the right */
-    width: 450px;                   /* Set a fixed width */
-    height: auto;                   /* Maintain aspect ratio */
-    margin: 0 0 1rem 1.5rem;        /* margin: top 0, right 0, bottom 1rem, left 1.5rem */
+    float: right;
+    max-width: 450px;
+    width: auto;              
+    height: auto; 
+    margin: 0 0 1rem 1.5rem;           
     border: 4px solid #F5EFE0;
     border-radius: 1rem;
     object-fit: cover;
     object-position: center;
-    display: block;
 }
 
 /* Clear floats after the container */
@@ -126,7 +149,6 @@ body {
 
 .about-me-text {
     color: #F5EFE0;
-    font-size: 1.3rem;
     font-weight: 400;
 }
 
@@ -138,10 +160,6 @@ body {
     border-radius: 1rem;
     padding: 2rem;
     color: #F5EFE0;
-}
-
-.services-container p {
-    font-size: 1.3rem;
 }
 
 .services-card {
@@ -186,6 +204,9 @@ body {
 
 /* For mobile view */
 @media screen and (max-width: 768px) {
+    p {
+        font-size: 1rem;
+    }
 
   .snap-section {
     padding-top: 160px !important;
@@ -197,11 +218,32 @@ body {
   .navbar {
     flex-direction: column;
     text-align: center;
+    width: 95%;
+    padding: 0.5rem 1rem;
   }
+
+  .navbar-brand {
+    font-size: 1.4rem;
+  }
+
+  .nav-item {
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-top: 10px;
+   }
 
   .header-logo {
     max-width: 140px;
     max-height: 140px;
+  }
+
+  .home-container,
+  .about-container,
+  .services-container,
+  .pricing-container {
+    width: 90%;
+    padding-left: 5px;
+    padding-right: 5px;
   }
 
   .group-service-card {
@@ -210,6 +252,16 @@ body {
 
   .individual-service-card {
     margin-top: 10px;
+  }
+
+  .services-card {
+    width: 15rem;
+    height: auto;
+  }
+
+  .about-img-float {
+    float: none;
+    max-width: 90%;
   }
 }
 
