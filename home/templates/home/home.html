@@ -62,28 +62,33 @@
             <br>
 
             <div class="row">
+                <!-- Group Walk Card -->
                 <div class="col-12 col-md-6">
                     <div class="card services-card group-service-card" style="width: 18rem;">
-                        <img src="{% static 'images/canine-compadre-group-walk.png' %}" class="card-img-top" alt="...">
+                        <img src="{% static 'images/canine-compadre-group-walk.png' %}" class="card-img-top" alt="Group Walk">
                         <div class="card-body">
-                            <p class="card-text text-center"><a href="#" class="service-link" data-service="group">Group Walk <i class="bi bi-arrow-right"></i></a></p>
+                            <p class="card-text text-center">
+                                <a href="#" class="service-link" data-service="group">Group Walk <i class="bi bi-arrow-right"></i></a>
+                            </p>
                         </div>
                     </div>
                 </div>
+
+                <!-- Individual Walk Card -->
                 <div class="col-12 col-md-6">
                     <div class="card services-card individual-service-card" style="width: 18rem;">
-                        <img src="{% static 'images/canine-compadre-single-walk.png' %}" class="card-img-top" alt="...">
+                        <img src="{% static 'images/canine-compadre-single-walk.png' %}" class="card-img-top" alt="Individual Walk">
                         <div class="card-body">
-                            <p class="card-text text-center"><a href="#" class="service-link" data-service="individual">Individual Walk <i class="bi bi-arrow-right"></i></a></p>
+                            <p class="card-text text-center">
+                                <a href="#" class="service-link" data-service="individual">Individual Walk <i class="bi bi-arrow-right"></i></a>
+                            </p>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Dynamic service detials will appear here -->
-            <div id="service-details" class="mt-4">
-
-            </div>
+            <!-- Shared placeholder for service details -->
+            <div id="service-details-placeholder" class="mt-4 w-100"></div> 
         </div>
     </section>
 
@@ -151,13 +156,11 @@
     </section>
 
     <!-- JavaScript for services toggle functionality -->
-     <script>
+    <script>
         document.addEventListener('DOMContentLoaded', function () {
-            const serviceDetails = document.getElementById('service-details');
-
             const content = {
                 group: `
-                    <div class="service-description p-4 mt-2">
+                    <div class="service-description p-4">
                         <h4 style="text-decoration: underline;">Group Walks</h4>
                         <p>Our primary service features socialized group walks available twice daily, seven days a week.
                         These walks allow dogs to interact, exercise, and enjoy the great outdoors together.
@@ -165,7 +168,7 @@
                     </div>
                 `,
                 individual: `
-                    <div class="service-description p-4 mt-2">
+                    <div class="service-description p-4">
                         <h4 style="text-decoration: underline;">Individual Walks</h4>
                         <p>We provide one-on-one walks for dogs that need personalized attention or don’t do well with others.
                         These are scheduled by appointment to match your dog's needs and your availability.</p>
@@ -174,16 +177,62 @@
                 `
             };
 
+            const detailsPlaceholder = document.getElementById('service-details-placeholder');
+            let currentType = null;
+            let currentContainer = null; // tracks the DOM container holding current content
+
             document.querySelectorAll('.service-link').forEach(link => {
                 link.addEventListener('click', function (e) {
                     e.preventDefault();
+
                     const type = this.dataset.service;
-                    if (content[type]) {
-                        serviceDetails.innerHTML = content[type];
+                    const cardCol = this.closest('.col-12');
+                    const screenWidth = window.innerWidth;
+
+                    // Small screen logic: if same card already has content below, toggle it off
+                    if (screenWidth < 768 && currentContainer === cardCol) {
+                        const existing = cardCol.nextElementSibling;
+                        if (existing && existing.classList.contains('service-description-inline')) {
+                            existing.remove();
+                            currentType = null;
+                            currentContainer = null;
+                            return;
+                        }
                     }
+
+                    // Large screen logic: if same type already shown, toggle off
+                    if (screenWidth >= 768 && currentType === type) {
+                        detailsPlaceholder.innerHTML = '';
+                        currentType = null;
+                        currentContainer = null;
+                        return;
+                    }
+
+                    // Clear existing content
+                    document.querySelectorAll('.service-description-inline').forEach(el => el.remove());
+                    detailsPlaceholder.innerHTML = '';
+
+                    const html = content[type];
+
+                    if (screenWidth < 768) {
+                        // Small screen: inject after clicked card
+                        const tempDiv = document.createElement('div');
+                        tempDiv.innerHTML = html;
+                        const inlineDiv = tempDiv.firstElementChild;
+                        inlineDiv.classList.add('service-description-inline', 'mt-3');
+                        cardCol.parentNode.insertBefore(inlineDiv, cardCol.nextSibling);
+                        currentContainer = cardCol;
+                    } else {
+                        // Large screen: show in placeholder
+                        detailsPlaceholder.innerHTML = html;
+                        currentContainer = detailsPlaceholder;
+                    }
+
+                    currentType = type;
                 });
             });
         });
     </script>
+
 {% endblock %}
 
