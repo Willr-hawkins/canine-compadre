@@ -25,8 +25,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ.get('SECRET_KEY' ,'django-insecure-&&+-7s@bc$kngd$1r0^cgtcc(ux*)#893b*&yv9@1_0(cx+ygl')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'
-#DEBUG = True
+#DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'
+DEBUG = True
 
 ALLOWED_HOSTS = [
     'caninecompadre.onrender.com',
@@ -37,7 +37,8 @@ ALLOWED_HOSTS = [
 
 # Trusted origins
 CSRF_TRUSTED_ORIGINS = [
-    'https://8000-willrhawkin-caninecompa-qq2mvid0b8j.ws-eu120.gitpod.io'
+    'https://8000-willrhawkin-caninecompa-qq2mvid0b8j.ws-eu120.gitpod.io',
+    'https://8000-willrhawkin-caninecompa-qq2mvid0b8j.ws-eu120.gitpod.io',
     'https://caninecompadre.onrender.com/',
 ]
 
@@ -91,7 +92,7 @@ WSGI_APPLICATION = 'CanineCompadre.wsgi.application'
 
 DATABASES = {
     'default': dj_database_url.config(
-        default = os.environ.get('DATABASE_URL', 'sqlite://db.sqlite3'),
+        default = os.environ.get('DATABASE_URL', 'sqlite:///db.sqlite3'),
         conn_max_age = 600,
         conn_health_checks = True,
     )

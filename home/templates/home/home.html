@@ -155,84 +155,369 @@
         </div>
     </section>
 
-    <!-- JavaScript for services toggle functionality -->
-    <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            const content = {
-                group: `
-                    <div class="service-description p-4">
-                        <h4 style="text-decoration: underline;">Group Walks</h4>
-                        <p>Our primary service features socialized group walks available twice daily, seven days a week.
-                        These walks allow dogs to interact, exercise, and enjoy the great outdoors together.
-                        We also offer occasional evening walks for pet parents who work night shifts.</p>
+    <!-- Section 5: Booking -->
+    <section id="booking" class="snap-section d-flex justify-content-center align-items-center">
+        <div class="booking-container container">
+            <h2 class="text-center fs-1">Book a Walk</h2>
+            <hr>
+            <h4 class="text-center">Ready to book? Choose your service below!</h4>
+            <br>
+
+            <!-- Main booking content container -->
+            <div id="booking-main-content">
+
+                <!-- Service Selection Buttons -->
+                <div id="booking-service-selection" class="text-center">
+                    <div class="row justify-content-center">
+                        <div class="col-12 col-md-5 mb-3">
+                            <button class="btn btn-outline-primary btn-lg w-100 booking-type-btn"
+                                    data-booking-type="group"
+                                    style="min-height: 80px;">
+                                <i class="bi bi-people-fill me-2 fs-4"></i><br>
+                                <strong>Book Group Walk</strong><br>
+                                <small class="text-muted">Immediate confirmation</small>
+                            </button>
+                        </div>
+                        <div class="col-12 col-md-5 mb-3">
+                            <button class="btn btn-outline-success btn-lg w-100 booking-type-btn" 
+                                data-booking-type="individual" 
+                                style="min-height: 80px;">
+                            <i class="bi bi-person-fill me-2 fs-4"></i><br>
+                            <strong>Request Individual Walk</strong><br>
+                            <small class="text-muted">Requires approval</small>
+                        </div>
                     </div>
-                `,
-                individual: `
-                    <div class="service-description p-4">
-                        <h4 style="text-decoration: underline;">Individual Walks</h4>
-                        <p>We provide one-on-one walks for dogs that need personalized attention or don’t do well with others.
-                        These are scheduled by appointment to match your dog's needs and your availability.</p>
-                        <p class="text-center mt-3"><strong>Please note: These walks require approval and booking confirmation.</strong></p>
+                </div>
+
+                <!-- Back Button (hidden initially) -->
+                <div id="back-to-selection" class="text-center mb-3" style="display: none;">
+                    <button class="btn btn-secondary" onclick="goBackToServiceSelection()">
+                        <i class="bi bi-arrow-left"></i> Back to Service Selection
+                    </button>
+                </div>
+
+                <!-- Group Walk Booking Form -->
+                <div id="group-booking-form" class="booking-form-section" style="display: none;">
+                    <div class="card">
+                        <div class="card-header bg-primary text-white text-center">
+                            <h4 class="mb-1"><i class="bi bi-people-fill me-2"></i>Group Walk Booking</h4>
+                            <small>Select an available date and time slot. Group walks are limited to 4 dogs total per session.</small>
+                        </div>
+                        <div class="card-body">
+                            <form id="group-walk-form">
+                                {% csrf_token %}
+                                
+                                <!-- Step 1: Number of Dogs -->
+                                <div class="booking-step" id="step-1-dogs">
+                                    <h5 class="text-center mb-3">Step 1: How many dogs?</h5>
+                                    <div class="row justify-content-center">
+                                        <div class="col-md-6">
+                                            <select id="num-dogs-selector" name="number_of_dogs" class="form-select form-select-lg" required>
+                                                <option value="">Select number of dogs...</option>
+                                                <option value="1">1 Dog</option>
+                                                <option value="2">2 Dogs</option>
+                                                <option value="3">3 Dogs</option>
+                                                <option value="4">4 Dogs</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Step 2: Calendar Selection -->
+                                <div class="booking-step" id="step-2-calendar" style="display: none;">
+                                    <h5 class="text-center mb-3">Step 2: Choose Date & Time</h5>
+                                    <div id="availability-calendar" class="availability-calendar mb-4">
+                                        <div class="loading text-center p-4">
+                                            <div class="spinner-border text-primary" role="status">
+                                                <span class="visually-hidden">Loading...</span>
+                                            </div>
+                                            <p class="mt-2">Loading available slots...</p>
+                                        </div>
+                                    </div>
+
+                                    <!-- Selected Slot Info -->
+                                    <div id="selection-summary" class="alert alert-info text-center" style="display: none;">
+                                        <strong>Selected:</strong> <span id="selected-info"></span>
+                                    </div>
+                                </div>
+
+                                <!-- Step 3: Your Details -->
+                                <div class="booking-step" id="step-3-details" style="display: none;">
+                                    <h5 class="text-center mb-3">Step 3: Your Details</h5>
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label for="group_customer_name" class="form-label">Name *</label>
+                                            <input type="text" class="form-control" name="customer_name" id="group_customer_name" required>
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <label for="group_customer_email" class="form-label">Email *</label>
+                                            <input type="email" class="form-control" name="customer_email" id="group_customer_email" required>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label for="group_customer_phone" class="form-label">Phone *</label>
+                                            <input type="tel" class="form-control" name="customer_phone" id="group_customer_phone" required>
+                                        </div>
+                                        <div class="col-12 mb-3">
+                                            <label for="group_customer_address" class="form-label">Address *</label>
+                                            <textarea class="form-control" name="customer_address" id="group_customer_address" rows="3" 
+                                                    placeholder="Your full address for pickup/dropoff" required></textarea>
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <label for="group_customer_postcode" class="form-label">Postcode *</label>
+                                            <input type="text" class="form-control" name="customer_postcode" id="group_customer_postcode" 
+                                                placeholder="EX33 1AA" style="text-transform: uppercase;" required>
+                                            <div class="form-text">We serve within 10 miles of Croyde, North Devon (EX33)</div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Hidden fields for selected date/time -->
+                                    <input type="hidden" name="booking_date" id="booking-date">
+                                    <input type="hidden" name="time_slot" id="time-slot">
+                                </div>
+
+                                <!-- Step 4: Dog Details -->
+                                <div class="booking-step" id="step-4-dogs" style="display: none;">
+                                    <h5 class="text-center mb-3">Step 4: Dog Details</h5>
+                                    <div id="dog-forms-container">
+                                        <!-- Dog forms will be added here dynamically -->
+                                    </div>
+                                </div>
+
+                                <!-- Submit Section -->
+                                <div class="booking-step text-center" id="step-5-submit" style="display: none;">
+                                    <button type="submit" class="btn btn-success btn-lg">
+                                        <i class="bi bi-check-circle"></i> Confirm Group Walk Booking
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
                     </div>
-                `
-            };
+                </div>
 
-            const detailsPlaceholder = document.getElementById('service-details-placeholder');
-            let currentType = null;
-            let currentContainer = null; // tracks the DOM container holding current content
+                <!-- Individual Walk Request Form -->
+                <div id="individual-booking-form" class="booking-form-section" style="display: none;">
+                    <div class="card">
+                        <div class="card-header bg-success text-white text-center">
+                            <h4 class="mb-1"><i class="bi bi-person-fill me-2"></i>Individual Walk Request</h4>
+                            <small>Submit a request for personalized one-on-one walking service</small>
+                        </div>
+                        <div class="card-body">
+                            
+                            <!-- Time Restrictions Alert -->
+                            <div class="alert alert-warning mb-4" role="alert">
+                                <h6 class="alert-heading">⚠️ Important Time Restrictions</h6>
+                                <p class="mb-2">Individual walks cannot be scheduled during these times due to group walk sessions:</p>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <strong>10:00 AM - 1:00 PM</strong><br>
+                                        <small>(Group walk 11AM-12PM + buffer)</small>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <strong>2:00 PM - 5:00 PM</strong><br>
+                                        <small>(Group walk 3PM-4PM + buffer)</small>
+                                    </div>
+                                </div>
+                                <hr class="my-2">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <span class="text-success">✅ <strong>Available:</strong> 7:00-10:00 AM</span>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <span class="text-success">✅ <strong>Available:</strong> 5:00-7:00 PM</span>
+                                    </div>
+                                </div>
+                            </div>
 
-            document.querySelectorAll('.service-link').forEach(link => {
-                link.addEventListener('click', function (e) {
-                    e.preventDefault();
+                            <form id="individual-walk-form">
+                                {% csrf_token %}
+                                
+                                <!-- Your Details -->
+                                <div class="mb-4">
+                                    <h5 class="mb-3">Your Details</h5>
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label for="ind_customer_name" class="form-label">Name *</label>
+                                            <input type="text" class="form-control" name="customer_name" id="ind_customer_name" required>
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <label for="ind_customer_email" class="form-label">Email *</label>
+                                            <input type="email" class="form-control" name="customer_email" id="ind_customer_email" required>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label for="ind_customer_phone" class="form-label">Phone *</label>
+                                            <input type="tel" class="form-control" name="customer_phone" id="ind_customer_phone" required>
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <label for="ind_number_of_dogs" class="form-label">Number of Dogs *</label>
+                                            <select class="form-control" name="number_of_dogs" id="ind_number_of_dogs" required>
+                                                <option value="">Select...</option>
+                                                <option value="1">1 Dog</option>
+                                                <option value="2">2 Dogs</option>
+                                                <option value="3">3 Dogs</option>
+                                                <option value="4">4 Dogs</option>
+                                                <option value="5">5 Dogs</option>
+                                                <option value="6">6 Dogs</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="ind_customer_address" class="form-label">Address *</label>
+                                        <textarea class="form-control" name="customer_address" id="ind_customer_address" rows="3" 
+                                                placeholder="Your full address for pickup/dropoff" required></textarea>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label for="ind_customer_postcode" class="form-label">Postcode *</label>
+                                        <input type="text" class="form-control" name="customer_postcode" id="ind_customer_postcode" 
+                                            placeholder="EX33 1AA" style="text-transform: uppercase;" required>
+                                        <div class="form-text">We serve within 10 miles of Croyde, North Devon (EX33)</div>
+                                    </div>
+                                </div>
 
-                    const type = this.dataset.service;
-                    const cardCol = this.closest('.col-12');
-                    const screenWidth = window.innerWidth;
+                                <!-- Walk Details -->
+                                <div class="mb-4">
+                                    <h5 class="mb-3">Walk Details</h5>
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label for="preferred_date" class="form-label">Preferred Date *</label>
+                                            <input type="date" class="form-control" name="preferred_date" id="preferred_date" required>
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <label for="preferred_time_choice" class="form-label">Preferred Time *</label>
+                                            <select class="form-control" name="preferred_time_choice" id="preferred_time_choice" required>
+                                                <option value="">Select time preference...</option>
+                                                <option value="early_morning">Early Morning (7:00-10:00 AM)</option>
+                                                <option value="late_afternoon">Late Afternoon/Evening (5:00-7:00 PM)</option>
+                                                <option value="flexible">Flexible - let us suggest a time</option>
+                                                <option value="custom">Other specific time</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Custom time input (hidden by default) -->
+                                    <div class="mb-3" id="custom-time-container" style="display: none;">
+                                        <label for="preferred_time" class="form-label">Specify Your Preferred Time</label>
+                                        <input type="text" class="form-control" name="preferred_time" id="preferred_time" 
+                                            placeholder="e.g., 8:00 AM - 9:00 AM">
+                                        <div class="form-text text-danger">
+                                            ⚠️ Remember: 10:00 AM - 1:00 PM and 2:00 PM - 5:00 PM are not available
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="reason_for_individual" class="form-label">Why does your dog need an individual walk? *</label>
+                                        <textarea class="form-control" name="reason_for_individual" id="reason_for_individual" rows="4" 
+                                                placeholder="Please explain your dog's specific needs (e.g., anxiety around other dogs, medical requirements, behavioral concerns, in training, etc.)" required></textarea>
+                                    </div>
+                                </div>
 
-                    // Small screen logic: if same card already has content below, toggle it off
-                    if (screenWidth < 768 && currentContainer === cardCol) {
-                        const existing = cardCol.nextElementSibling;
-                        if (existing && existing.classList.contains('service-description-inline')) {
-                            existing.remove();
-                            currentType = null;
-                            currentContainer = null;
-                            return;
-                        }
-                    }
+                                <!-- Dog Details Section -->
+                                <div class="mb-4">
+                                    <h5 class="mb-3">Dog Details</h5>
+                                    <div id="individual-dog-forms-container">
+                                        <!-- Dog forms will be added here dynamically -->
+                                    </div>
+                                </div>
 
-                    // Large screen logic: if same type already shown, toggle off
-                    if (screenWidth >= 768 && currentType === type) {
-                        detailsPlaceholder.innerHTML = '';
-                        currentType = null;
-                        currentContainer = null;
-                        return;
-                    }
+                                <!-- Submit Section -->
+                                <div class="text-center">
+                                    <button type="submit" class="btn btn-success btn-lg">
+                                        <i class="bi bi-send"></i> Submit Individual Walk Request
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
 
-                    // Clear existing content
-                    document.querySelectorAll('.service-description-inline').forEach(el => el.remove());
-                    detailsPlaceholder.innerHTML = '';
+    <!-- Dog Form Template (Hidden) -->
+    <template id="dog-form-template">
+        <div class="dog-form card mb-3">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">Dog <span class="dog-number"></span> Details</h6>
+                    <button type="button" class="btn btn-outline-danger btn-sm remove-dog-btn" style="display: none;">
+                        <i class="bi bi-trash"></i> Remove
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <!-- Basic Dog Info -->
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Dog's Name *</label>
+                        <input type="text" class="form-control dog-name" name="dog_{INDEX}_name" required>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Breed *</label>
+                        <input type="text" class="form-control dog-breed" name="dog_{INDEX}_breed" required>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Age (years) *</label>
+                        <input type="number" class="form-control dog-age" name="dog_{INDEX}_age" min="0" max="25" required>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <div class="form-check mt-4">
+                            <input type="checkbox" class="form-check-input dog-social" name="dog_{INDEX}_good_with_other_dogs" checked>
+                            <label class="form-check-label">Good with other dogs</label>
+                        </div>
+                    </div>
+                </div>
 
-                    const html = content[type];
+                <!-- Health & Care Info -->
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Allergies/Health Concerns</label>
+                        <textarea class="form-control dog-allergies" name="dog_{INDEX}_allergies" rows="2" 
+                                placeholder="Any medical conditions we should know about"></textarea>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Special Instructions</label>
+                        <textarea class="form-control dog-instructions" name="dog_{INDEX}_special_instructions" rows="2" 
+                                placeholder="Special care or handling instructions"></textarea>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Behavioral Notes</label>
+                    <textarea class="form-control dog-behavior" name="dog_{INDEX}_behavioral_notes" rows="2" 
+                            placeholder="Any behavioral concerns, triggers, or special needs"></textarea>
+                </div>
 
-                    if (screenWidth < 768) {
-                        // Small screen: inject after clicked card
-                        const tempDiv = document.createElement('div');
-                        tempDiv.innerHTML = html;
-                        const inlineDiv = tempDiv.firstElementChild;
-                        inlineDiv.classList.add('service-description-inline', 'mt-3');
-                        cardCol.parentNode.insertBefore(inlineDiv, cardCol.nextSibling);
-                        currentContainer = cardCol;
-                    } else {
-                        // Large screen: show in placeholder
-                        detailsPlaceholder.innerHTML = html;
-                        currentContainer = detailsPlaceholder;
-                    }
+                <!-- NEW VET INFORMATION SECTION -->
+                <hr>
+                <h6 class="text-primary mb-3"><i class="bi bi-plus-circle me-2"></i>Veterinary Information</h6>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Vet Practice Name *</label>
+                        <input type="text" class="form-control dog-vet-name" name="dog_{INDEX}_vet_name" 
+                            placeholder="e.g., Croyde Veterinary Surgery" required>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Vet Phone Number *</label>
+                        <input type="tel" class="form-control dog-vet-phone" name="dog_{INDEX}_vet_phone" 
+                            placeholder="01271 890123" required>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Vet Practice Address *</label>
+                    <textarea class="form-control dog-vet-address" name="dog_{INDEX}_vet_address" rows="2" 
+                            placeholder="Full vet practice address" required></textarea>
+                </div>
+            </div>
+        </div>
+    </template>
 
-                    currentType = type;
-                });
-            });
-        });
-    </script>
+    <!-- JavaScript Files -->
+    <script src="{% static 'js/services.js' %}"></script>
+    <script src="{% static 'js/booking.js' %}"></script>
 
 {% endblock %}
 

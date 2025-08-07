@@ -197,6 +197,130 @@ p {
     width: 30%;
 }
 
+/* Booking section and forms */
+.booking-container {
+    background: rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(5px);
+    border: 6px solid #F5EFE0;
+    border-radius: 1rem;
+    padding: 2rem;
+    color: #F5EFE0;
+}
+
+.booking-type-btn {
+    transition: all 0.3s ease;
+    border-width: 2px;
+    color: #F5EFE0;
+}
+
+.booking-type-btn small {
+    color: #F5EFE0 !important;
+}
+
+.booking-type-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.availability-calendar {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    padding: 1rem;
+    background-color: #f8f9fa;
+}
+
+.day-card {
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    margin-bottom: 1rem;
+    padding: 1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    background-color: white;
+}
+
+.day-card:hover {
+    border-color: #0d6efd;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, .075);
+}
+
+.day-card.selected {
+    border-color: #0d6efd;
+    background-color: #f8f9ff;
+}
+
+.time-slot {
+    display: inline-block;
+    margin: 0.25rem;
+    padding: 0.5rem 1rem;
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    min-width: 180px;
+    text-align: center;
+}
+
+.time-slot.available {
+    background-color: #d1e7dd;
+    border-color: #a3cfbb;
+    color: #0f5132;
+}
+
+.time-slot.available:hover {
+    background-color: #a3cfbb;
+}
+
+.time-slot.full {
+    background-color: #f8d7da;
+    border-color: #f1aeb5;
+    color: #58151c;
+    cursor: not-allowed;
+}
+
+.time-slot.selected {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+    color: white;
+}
+
+.spots-info {
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+}
+
+.booking-step {
+    padding: 1rem 0;
+    border-bottom: 1px solid #eee;
+    margin-bottom: 1rem;
+}
+
+.booking-step:last-child {
+    border-bottom: none;
+}
+
+.dog-form {
+    animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.loading {
+    color: #6c757d;
+}
+
 
 /*-------------------*/
 /* Media queries */
