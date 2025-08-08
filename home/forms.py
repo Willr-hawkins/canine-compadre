@@ -209,8 +209,11 @@ class IndividualWalkForm(forms.ModelForm):
         cleaned_data = super().clean()
         preferred_time = cleaned_data.get('preferred_time', '')
         
-        if preferred_time:
-            # Check for restricted time patterns
+        # Only validate time if it's a custom time entry, not predefined choices
+        if preferred_time and not any(x in preferred_time.lower() for x in [
+            'early morning', 'late afternoon', 'evening', 'flexible'
+        ]):
+            # Check for restricted time patterns only for custom times
             preferred_lower = preferred_time.lower()
             
             # Define restricted patterns more comprehensively
@@ -218,17 +221,15 @@ class IndividualWalkForm(forms.ModelForm):
                 # Morning restricted period (10 AM - 1 PM)
                 'morning_restricted': ['10:', '11:', '12:', '10am', '11am', '12pm', 'noon', 'midday'],
                 # Afternoon restricted period (2 PM - 5 PM)  
-                'afternoon_restricted': ['14:', '15:', '16:', '17:', '2pm', '3pm', '4pm', '5pm', 'afternoon']
+                'afternoon_restricted': ['14:', '15:', '16:', '17:', '2pm', '3pm', '4pm', '5pm']
             }
             
             # Check if any restricted patterns are found
             found_restricted = False
             for period, patterns in restricted_patterns.items():
                 if any(pattern in preferred_lower for pattern in patterns):
-                    # Additional validation for time ranges
-                    if any(time_pattern in preferred_lower for time_pattern in ['10:', '11:', '12:', '14:', '15:', '16:', '17:']):
-                        found_restricted = True
-                        break
+                    found_restricted = True
+                    break
             
             if found_restricted:
                 raise ValidationError(

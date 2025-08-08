@@ -25,11 +25,13 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ.get('SECRET_KEY' ,'django-insecure-&&+-7s@bc$kngd$1r0^cgtcc(ux*)#893b*&yv9@1_0(cx+ygl')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-#DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'
-DEBUG = True
+DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'
+#DEBUG = True
 
 ALLOWED_HOSTS = [
     'caninecompadre.onrender.com',
+    'caninecompadre.co.uk',
+    'www.caninecompadre.co.uk',
     '8000-willrhawkin-caninecompa-qq2mvid0b8j.ws-eu120.gitpod.io',
     'localhost',
     '127.0.0.1'
@@ -38,8 +40,9 @@ ALLOWED_HOSTS = [
 # Trusted origins
 CSRF_TRUSTED_ORIGINS = [
     'https://8000-willrhawkin-caninecompa-qq2mvid0b8j.ws-eu120.gitpod.io',
-    'https://8000-willrhawkin-caninecompa-qq2mvid0b8j.ws-eu120.gitpod.io',
     'https://caninecompadre.onrender.com/',
+    'https://caninecompadre.co.uk',
+    'https://www.caninecompadre.co.uk',
 ]
 
 # Application definition
@@ -145,3 +148,94 @@ STATICFILES_DIRS = [
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# ===========================================
+# GOOGLE CALENDAR INTEGRATION SETTINGS
+# ===========================================
+
+# Google Calendar ID (usually your business email or 'primary')
+GOOGLE_CALENDAR_ID = os.environ.get('GOOGLE_CALENDAR_ID', 'cb25939fb6bf4aaa86f3828b7b4cef3219bd64ac274d4431b95643bc22e6408b@group.calendar.google.com')
+
+# For development - put your JSON file in the project root as 'google_credentials.json'
+# For production - use environment variable with JSON content as string
+GOOGLE_SERVICE_ACCOUNT_KEY = os.environ.get('GOOGLE_SERVICE_ACCOUNT_KEY')
+
+# ===========================================
+# BUSINESS EMAIL AND CONTACT SETTINGS
+# ===========================================
+
+# Business contact information
+BUSINESS_EMAIL = 'booking@caninecompadre.co.uk'
+BUSINESS_PHONE = ''  # Replace with Alex's actual phone number
+ADMIN_EMAIL = 'alex@caninecompadre.co.uk'  # Replace with Alex's actual email
+SITE_URL = 'https://caninecompadre.co.uk' if not DEBUG else 'http://localhost:8000'
+
+# ===========================================
+# EMAIL CONFIGURATION
+# ===========================================
+
+# Email backend configuration
+if DEBUG:
+    # For development - prints emails to console instead of sending
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+else:
+    # For production - configure your email service
+    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+    EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
+    EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
+    EMAIL_USE_TLS = True
+    EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', BUSINESS_EMAIL)
+    EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
+
+# Default email settings
+DEFAULT_FROM_EMAIL = BUSINESS_EMAIL
+SERVER_EMAIL = BUSINESS_EMAIL
+
+# ===========================================
+# LOGGING CONFIGURATION
+# ===========================================
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'file': {
+            'level': 'INFO',
+            'class': 'logging.FileHandler',
+            'filename': os.path.join(BASE_DIR, 'bookings.log'),
+            'formatter': 'verbose',
+        },
+        'console': {
+            'level': 'DEBUG',
+            'class': 'logging.StreamHandler',
+            'formatter': 'simple',
+        },
+    },
+    'loggers': {
+        'home': {  # Changed from 'bookings' to 'home' since your app is called 'home'
+            'handlers': ['file', 'console'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+        'home.calendar_service': {
+            'handlers': ['file', 'console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'home.email_service': {
+            'handlers': ['file', 'console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+}

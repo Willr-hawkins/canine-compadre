@@ -789,10 +789,17 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     async function submitIndividualWalkForm() {
+        console.log('=== INDIVIDUAL FORM SUBMISSION DEBUG ===');
+        
         const formData = new FormData();
         const form = document.getElementById('individual-walk-form');
-        if (!form) return;
-        
+        if (!form) {
+            console.error('Form not found!');
+            return;
+        }
+
+        console.log('Form found:', form);
+
         // Add basic form data including postcode
         const basicFields = [
             'customer_name', 'customer_email', 'customer_phone', 'customer_address', 'customer_postcode',
@@ -800,44 +807,71 @@ document.addEventListener('DOMContentLoaded', function() {
             'reason_for_individual', 'number_of_dogs'
         ];
         
+        console.log('=== BASIC FIELD VALUES ===');
         basicFields.forEach(field => {
             const element = form.querySelector(`[name="${field}"]`);
             if (element) {
+                console.log(`${field}:`, element.value);
                 formData.append(field, element.value);
+            } else {
+                console.warn(`Field ${field} not found in form`);
             }
         });
-        
-        // Add dog data including vet information
+
+        // Check number of dogs
         const numDogsSelector = document.getElementById('ind_number_of_dogs');
         const numDogs = numDogsSelector ? parseInt(numDogsSelector.value) : 0;
-        
+        console.log('Number of dogs selected:', numDogs);
+
+        // Add dog data including vet information
+        console.log('=== DOG FORM DATA ===');
         for (let i = 0; i < numDogs; i++) {
+            console.log(`--- Dog ${i + 1} ---`);
             const dogFields = ['name', 'breed', 'age', 'allergies', 'special_instructions', 'good_with_other_dogs', 'behavioral_notes', 'vet_name', 'vet_phone', 'vet_address'];
+            
             dogFields.forEach(field => {
                 const element = form.querySelector(`[name="dog_${i}_${field}"]`);
                 if (element) {
+                    let value;
                     if (element.type === 'checkbox') {
-                        formData.append(`dog_${i}_${field}`, element.checked ? 'on' : '');
+                        value = element.checked ? 'on' : '';
+                        formData.append(`dog_${i}_${field}`, value);
                     } else {
-                        formData.append(`dog_${i}_${field}`, element.value);
+                        value = element.value;
+                        formData.append(`dog_${i}_${field}`, value);
                     }
+                    console.log(`  dog_${i}_${field}:`, value);
+                } else {
+                    console.warn(`  Dog field dog_${i}_${field} not found`);
                 }
             });
         }
-        
+
         // Add CSRF token
+        console.log('=== CSRF TOKEN ===');
         const csrfToken = form.querySelector('[name="csrfmiddlewaretoken"]');
         if (csrfToken) {
+            console.log('CSRF token found:', csrfToken.value);
             formData.append('csrfmiddlewaretoken', csrfToken.value);
         } else {
             // Fallback - try to get CSRF token from page
             const pageCSRF = getCSRFToken();
+            console.log('Fallback CSRF token:', pageCSRF);
             if (pageCSRF) {
                 formData.append('csrfmiddlewaretoken', pageCSRF);
+            } else {
+                console.error('No CSRF token found!');
             }
         }
-        
+
+        // Log all FormData entries
+        console.log('=== FINAL FORM DATA ===');
+        for (let [key, value] of formData.entries()) {
+            console.log(`${key}: ${value}`);
+        }
+
         try {
+            console.log('Sending request to /book/individual/...');
             const response = await fetch('/book/individual/', {
                 method: 'POST',
                 body: formData,
@@ -845,10 +879,15 @@ document.addEventListener('DOMContentLoaded', function() {
                     'X-Requested-With': 'XMLHttpRequest',
                 }
             });
-            
+
+            console.log('Response status:', response.status);
+            console.log('Response ok:', response.ok);
+
             const result = await response.json();
-            
+            console.log('Response JSON:', result);
+
             if (result.success) {
+                console.log('Success! Showing success message');
                 // Replace booking content with success message
                 if (bookingMainContent) {
                     bookingMainContent.innerHTML = result.html;
@@ -860,13 +899,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 }, 100);
                 
             } else {
+                console.log('Form validation failed');
+                console.log('Errors:', result.errors);
+                console.log('Message:', result.message);
                 // Show errors
                 showFormErrors('individual-walk-form', result.errors, result.message);
             }
         } catch (error) {
-            console.error('Error submitting form:', error);
+            console.error('Network error:', error);
             showGenericError('individual-walk-form', 'An error occurred while submitting your request. Please check your internet connection and try again.');
         }
+        
+        console.log('=== END INDIVIDUAL FORM SUBMISSION DEBUG ===');
     }
     
     // ===========================================

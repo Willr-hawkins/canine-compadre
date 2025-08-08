@@ -20,7 +20,7 @@ class GoogleCalendarService:
         """Initialize Google Calendar API service"""
         try:
             # Get credentials from environment variable (JSON string) or file
-            if hasattr(settings, 'GOOGLE_SERVICE_ACCOUNT_KEY'):
+            if hasattr(settings, 'GOOGLE_SERVICE_ACCOUNT_KEY') and settings.GOOGLE_SERVICE_ACCOUNT_KEY:
                 # For production (Render) - JSON as string in environment variable
                 credentials_info = json.loads(settings.GOOGLE_SERVICE_ACCOUNT_KEY)
                 credentials = service_account.Credentials.from_service_account_info(
@@ -30,12 +30,17 @@ class GoogleCalendarService:
             else:
                 # For development - JSON file
                 credentials_path = os.path.join(settings.BASE_DIR, 'google_credentials.json')
+                if not os.path.exists(credentials_path):
+                    logger.error(f"Google credentials file not found at: {credentials_path}")
+                    return None
+                
                 credentials = service_account.Credentials.from_service_account_file(
                     credentials_path,
                     scopes=['https://www.googleapis.com/auth/calendar']
                 )
             
             service = build('calendar', 'v3', credentials=credentials)
+            logger.info("Google Calendar service initialized successfully")
             return service
             
         except Exception as e:
@@ -65,10 +70,12 @@ class GoogleCalendarService:
             start_datetime = datetime.combine(booking.booking_date, datetime.strptime(start_time, '%H:%M:%S').time())
             end_datetime = datetime.combine(booking.booking_date, datetime.strptime(end_time, '%H:%M:%S').time())
             
-            # Convert to timezone-aware datetimes
-            uk_timezone = timezone.get_current_timezone()
-            start_datetime = uk_timezone.localize(start_datetime)
-            end_datetime = uk_timezone.localize(end_datetime)
+            # Convert to timezone-aware datetimes using Django's timezone utilities
+            # Make them timezone-aware for London timezone
+            import zoneinfo
+            london_tz = zoneinfo.ZoneInfo('Europe/London')
+            start_datetime = start_datetime.replace(tzinfo=london_tz)
+            end_datetime = end_datetime.replace(tzinfo=london_tz)
             
             # Get dog names
             dog_names = [dog.name for dog in booking.dogs.all()]
@@ -76,8 +83,7 @@ class GoogleCalendarService:
             # Create event
             event = {
                 'summary': f'Group Walk - {booking.customer_name}',
-                'description': f'''
-Group Walk Booking Details:
+                'description': f'''Group Walk Booking Details:
 
 Customer: {booking.customer_name}
 Phone: {booking.customer_phone}
@@ -88,8 +94,7 @@ Postcode: {booking.customer_postcode}
 Dogs: {', '.join(dog_names)} ({len(dog_names)} dog{'s' if len(dog_names) != 1 else ''})
 
 Booking ID: {booking.id}
-Status: {booking.get_status_display()}
-                '''.strip(),
+Status: {booking.get_status_display()}''',
                 'start': {
                     'dateTime': start_datetime.isoformat(),
                     'timeZone': 'Europe/London',
@@ -99,9 +104,10 @@ Status: {booking.get_status_display()}
                     'timeZone': 'Europe/London',
                 },
                 'location': f'{booking.customer_address}, {booking.customer_postcode}',
-                'attendees': [
-                    {'email': booking.customer_email, 'displayName': booking.customer_name}
-                ],
+            # Note: Service accounts cannot invite attendees without Domain-Wide Delegation
+            # 'attendees': [
+            #     {'email': booking.customer_email, 'displayName': booking.customer_name}
+            # ],
                 'reminders': {
                     'useDefault': False,
                     'overrides': [
@@ -163,9 +169,10 @@ Status: {booking.get_status_display()}
             end_datetime = start_datetime + timedelta(hours=1)  # 1 hour walk
             
             # Convert to timezone-aware datetimes
-            uk_timezone = timezone.get_current_timezone()
-            start_datetime = uk_timezone.localize(start_datetime)
-            end_datetime = uk_timezone.localize(end_datetime)
+            import zoneinfo
+            london_tz = zoneinfo.ZoneInfo('Europe/London')
+            start_datetime = start_datetime.replace(tzinfo=london_tz)
+            end_datetime = end_datetime.replace(tzinfo=london_tz)
             
             # Get dog names
             dog_names = [dog.name for dog in booking.dogs.all()]
@@ -173,8 +180,7 @@ Status: {booking.get_status_display()}
             # Create event
             event = {
                 'summary': f'Individual Walk - {booking.customer_name}',
-                'description': f'''
-Individual Walk Details:
+                'description': f'''Individual Walk Details:
 
 Customer: {booking.customer_name}
 Phone: {booking.customer_phone}
@@ -191,8 +197,7 @@ Preferred Time: {booking.preferred_time}
 Confirmed Time: {booking.confirmed_time}
 
 Booking ID: {booking.id}
-Status: {booking.get_status_display()}
-                '''.strip(),
+Status: {booking.get_status_display()}''',
                 'start': {
                     'dateTime': start_datetime.isoformat(),
                     'timeZone': 'Europe/London',
@@ -243,8 +248,7 @@ Status: {booking.get_status_display()}
             if hasattr(booking, 'time_slot'):  # Group walk
                 dog_names = [dog.name for dog in booking.dogs.all()]
                 event['summary'] = f'Group Walk - {booking.customer_name}'
-                event['description'] = f'''
-Group Walk Booking Details:
+                event['description'] = f'''Group Walk Booking Details:
 
 Customer: {booking.customer_name}
 Phone: {booking.customer_phone}
@@ -255,8 +259,7 @@ Postcode: {booking.customer_postcode}
 Dogs: {', '.join(dog_names)} ({len(dog_names)} dog{'s' if len(dog_names) != 1 else ''})
 
 Booking ID: {booking.id}
-Status: {booking.get_status_display()}
-                '''.strip()
+Status: {booking.get_status_display()}'''
             
             # Update the event
             updated_event = self.service.events().update(

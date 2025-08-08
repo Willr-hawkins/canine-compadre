@@ -97,20 +97,17 @@ def group_walk_booking(request):
                 # Verify we have the right number of dogs
                 if len(created_dogs) != booking.number_of_dogs:
                     raise ValueError(f"Expected {booking.number_of_dogs} dogs, but only {len(created_dogs)} were created")
-                
-                # Create Google Calendar event
-                calendar_event_created = False
-                if INTEGRATIONS_AVAILABLE:
+
+                # Create calendar event now that dogs exist
+                if not booking.calendar_event_id:
                     try:
+                        from .calendar_service import GoogleCalendarService
                         calendar_service = GoogleCalendarService()
                         event_id = calendar_service.create_group_walk_event(booking)
                         if event_id:
                             booking.calendar_event_id = event_id
                             booking.save(update_fields=['calendar_event_id'])
-                            calendar_event_created = True
                             logger.info(f"Calendar event created for group walk booking {booking.id}: {event_id}")
-                        else:
-                            logger.warning(f"Failed to create calendar event for group walk booking {booking.id}")
                     except Exception as e:
                         logger.error(f"Error creating calendar event for booking {booking.id}: {str(e)}")
                 
@@ -140,7 +137,7 @@ def group_walk_booking(request):
                 dog_names = [dog.name for dog in created_dogs]
                 
                 # Create status indicators
-                calendar_status = "✅ Added to calendar" if calendar_event_created else "⚠️ Calendar sync pending"
+                calendar_status = "✅ Added to calendar" if booking.calendar_event_id else "⚠️ Calendar sync pending"
                 email_status = f"📧 Confirmation sent to {booking.customer_email}" if customer_email_sent else "⚠️ Email confirmation pending"
                 
                 success_html = f"""
@@ -180,7 +177,7 @@ def group_walk_booking(request):
                     'message': 'Group walk booking confirmed successfully!',
                     'html': success_html,
                     'booking_id': booking.id,
-                    'calendar_created': calendar_event_created,
+                    'calendar_created': bool(booking.calendar_event_id),
                     'email_sent': customer_email_sent,
                 })
                 

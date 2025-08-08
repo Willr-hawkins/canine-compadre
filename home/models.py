@@ -4,6 +4,9 @@ from django.utils import timezone
 from django.core.exceptions import ValidationError
 from datetime import date, timedelta
 import logging
+from django.db.models.signals import post_delete
+from django.dispatch import receiver
+
 
 logger = logging.getLogger(__name__)
 
@@ -97,8 +100,8 @@ class GroupWalk(BaseBooking):
         super().save(*args, **kwargs)
         
         # Create calendar event after saving if this is a new confirmed booking
-        if not kwargs.get('update_fields') and self.status == 'confirmed' and not self.calendar_event_id:
-            self.create_calendar_event()
+        #if not kwargs.get('update_fields') and self.status == 'confirmed' and not self.calendar_event_id:
+        #    self.create_calendar_event()
     
     def get_available_spots_for_slot(self):
         """Get available spots for this specific date/time slot"""
@@ -386,8 +389,18 @@ class IndividualWalk(BaseBooking):
         # Check if preferred time conflicts with restricted ranges
         if self.preferred_time:
             preferred_lower = self.preferred_time.lower()
+            
+            # Skip validation for predefined safe choices
+            safe_choices = [
+                'early morning', 'late afternoon', 'evening', 'flexible',
+                'please suggest', 'let us suggest'
+            ]
+            
+            # If it's a predefined safe choice, don't validate further
+            if any(safe_choice in preferred_lower for safe_choice in safe_choices):
+                return  # Skip time restriction validation for safe choices
 
-            # Check for common time conflicts with more comprehensive patterns
+            # Only validate custom time entries for conflicts
             morning_restricted = ['10:', '11:', '12:', '10am', '11am', '12pm', 'noon', 'midday']
             afternoon_restricted = ['14:', '15:', '16:', '17:', '2pm', '3pm', '4pm', '5pm']
             
@@ -654,3 +667,33 @@ class GroupWalkSlotManager(models.Model):
             }
         )
         return slot_manager, created
+
+@receiver(post_delete, sender=GroupWalk)
+def delete_group_walk_calendar_event(sender, instance, **kwargs):
+    """Delete calendar event when GroupWalk is deleted"""
+    if instance.calendar_event_id:
+        try:
+            from .calendar_service import GoogleCalendarService
+            calendar_service = GoogleCalendarService()
+            deleted = calendar_service.delete_event(instance.calendar_event_id)
+            if deleted:
+                logger.info(f"Calendar event deleted for group walk booking {instance.id}")
+            else:
+                logger.warning(f"Failed to delete calendar event for group walk booking {instance.id}")
+        except Exception as e:
+            logger.error(f"Error deleting calendar event for group walk booking {instance.id}: {str(e)}")
+
+@receiver(post_delete, sender=IndividualWalk)
+def delete_individual_walk_calendar_event(sender, instance, **kwargs):
+    """Delete calendar event when IndividualWalk is deleted"""
+    if instance.calendar_event_id:
+        try:
+            from .calendar_service import GoogleCalendarService
+            calendar_service = GoogleCalendarService()
+            deleted = calendar_service.delete_event(instance.calendar_event_id)
+            if deleted:
+                logger.info(f"Calendar event deleted for individual walk booking {instance.id}")
+            else:
+                logger.warning(f"Failed to delete calendar event for individual walk booking {instance.id}")
+        except Exception as e:
+            logger.error(f"Error deleting calendar event for individual walk booking {instance.id}: {str(e)}")
