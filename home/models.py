@@ -63,7 +63,7 @@ class GroupWalk(BaseBooking):
     ]
 
     booking_date = models.DateField()
-    time_slot = models.CharField(max_length=20, choices=TIME_SLOT_CHOICES)
+    time_slot = models.CharField(max_length=30, choices=TIME_SLOT_CHOICES)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='confirmed')
 
     # Override number_of_dogs validation - individual bookings can be 1-4 dogs, group limit is 4 total
