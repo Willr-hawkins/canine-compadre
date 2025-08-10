@@ -328,13 +328,27 @@ p {
 
 /* For mobile view */
 @media screen and (max-width: 768px) {
+    /* Disable snap scrolling on mobile */
+    html {
+        scroll-snap-type: none;
+    }
+
+    .scroll-container {
+        scroll-snap-type: none;
+    }
+
+    .snap-section {
+        scroll-snap-align: none;
+        scroll-snap-stop: unset;
+    }
+
     p {
         font-size: 1rem;
     }
 
   .snap-section {
-    padding-top: 160px !important;
-    padding-bottom: 60px;
+    padding-top: 100px !important;
+    padding-bottom: 20px;
     margin-bottom: 2rem;
     scroll-snap-align: start;
   }
@@ -364,7 +378,8 @@ p {
   .home-container,
   .about-container,
   .services-container,
-  .pricing-container {
+  .pricing-container,
+  .booking-container {
     width: 90%;
     padding-left: 5px;
     padding-right: 5px;
