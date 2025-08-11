@@ -743,29 +743,13 @@ def health_check(request):
 
 @require_http_methods(["GET"])
 def api_group_form_template(request):
-    """Return group walk form HTML template"""
-    try:
-        form = GroupWalkForm()
-        html = render_to_string('bookings/forms/group_walk_form_template.html', {
-            'form': form,
-        }, request=request)
-        return JsonResponse({'html': html})
-    except Exception as e:
-        logger.error(f"Error rendering group form template: {str(e)}")
-        return JsonResponse({'error': 'Template not available'}, status=500)
+    """Return empty response - template not needed"""
+    return JsonResponse({'html': ''})
 
 @require_http_methods(["GET"])
 def api_individual_form_template(request):
-    """Return individual walk form HTML template"""
-    try:
-        form = IndividualWalkForm()
-        html = render_to_string('bookings/forms/individual_walk_form_template.html', {
-            'form': form,
-        }, request=request)
-        return JsonResponse({'html': html})
-    except Exception as e:
-        logger.error(f"Error rendering individual form template: {str(e)}")
-        return JsonResponse({'error': 'Template not available'}, status=500)
+    """Return empty response - template not needed"""
+    return JsonResponse({'html': ''})
 
 # Utility views
 

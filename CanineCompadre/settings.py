@@ -32,14 +32,14 @@ ALLOWED_HOSTS = [
     'caninecompadre.onrender.com',
     'caninecompadre.co.uk',
     'www.caninecompadre.co.uk',
-    '8000-willrhawkin-caninecompa-qq2mvid0b8j.ws-eu120.gitpod.io',
+    '8000-willrhawkin-caninecompa-qq2mvid0b8j.ws-eu121.gitpod.io',
     'localhost',
     '127.0.0.1'
 ]
 
 # Trusted origins
 CSRF_TRUSTED_ORIGINS = [
-    'https://8000-willrhawkin-caninecompa-qq2mvid0b8j.ws-eu120.gitpod.io',
+    'https://8000-willrhawkin-caninecompa-qq2mvid0b8j.ws-eu121.gitpod.io',
     'https://caninecompadre.onrender.com/',
     'https://caninecompadre.co.uk',
     'https://www.caninecompadre.co.uk',
