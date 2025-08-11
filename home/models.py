@@ -7,7 +7,6 @@ import logging
 from django.db.models.signals import post_delete
 from django.dispatch import receiver
 
-
 logger = logging.getLogger(__name__)
 
 class BaseBooking(models.Model):
@@ -51,9 +50,11 @@ class BaseBooking(models.Model):
         self.clean_postcode()
 
 class GroupWalk(BaseBooking):
+    # UPDATED TIME SLOT CHOICES - New times as requested
     TIME_SLOT_CHOICES = [
-        ('11:00-12:00', '11:00 AM - 12:00 PM'),
-        ('15:00-16:00', '3:00 PM - 4:00 PM'),
+        ('10:00-12:00', '10:00 AM - 12:00 PM'),
+        ('14:00-16:00', '2:00 PM - 4:00 PM'),
+        ('18:00-20:00', '6:00 PM - 8:00 PM'),  # NEW EVENING SLOT
     ]
 
     STATUS_CHOICES = [
@@ -188,17 +189,20 @@ class GroupWalk(BaseBooking):
             for time_slot, time_display in cls.TIME_SLOT_CHOICES:
                 # Check if slot is available via slot manager
                 if slot_manager:
-                    if time_slot == '11:00-12:00' and not slot_manager.morning_slot_available:
+                    if time_slot == '10:00-12:00' and not slot_manager.morning_slot_available:
                         continue
-                    if time_slot == '15:00-16:00' and not slot_manager.afternoon_slot_available:
+                    if time_slot == '14:00-16:00' and not slot_manager.afternoon_slot_available:
+                        continue
+                    if time_slot == '18:00-20:00' and not slot_manager.evening_slot_available:
                         continue
                     
                     # Use custom capacity if set
-                    max_capacity = (
-                        slot_manager.morning_slot_capacity 
-                        if time_slot == '11:00-12:00' 
-                        else slot_manager.afternoon_slot_capacity
-                    )
+                    if time_slot == '10:00-12:00':
+                        max_capacity = slot_manager.morning_slot_capacity
+                    elif time_slot == '14:00-16:00':
+                        max_capacity = slot_manager.afternoon_slot_capacity
+                    else:  # evening slot
+                        max_capacity = slot_manager.evening_slot_capacity
                 else:
                     max_capacity = 4
 
@@ -247,16 +251,17 @@ class IndividualWalk(BaseBooking):
         ('completed', 'Completed'),
     ]
 
-    # Restricted time slots for individual walks (group walks times + 1 hour buffer)
+    # UPDATED restricted time slots for individual walks (new group walk times + 1 hour buffer)
     RESTRICTED_TIME_RANGES = [
-        ('10:00-13:00', '10:00 AM - 1:00 PM (Group Walk + buffer)'),
-        ('14:00-17:00', '2:00 PM - 5:00 PM (Group Walk + buffer)'),
+        ('09:00-13:00', '9:00 AM - 1:00 PM (Group Walk + buffer)'),    # 10-12 + 1hr buffer each side
+        ('13:00-17:00', '1:00 PM - 5:00 PM (Group Walk + buffer)'),    # 14-16 + 1hr buffer each side  
+        ('17:00-21:00', '5:00 PM - 9:00 PM (Group Walk + buffer)'),    # 18-20 + 1hr buffer each side
     ]
 
     preferred_date = models.DateField()
     preferred_time = models.CharField(
         max_length=100,
-        help_text="Preferred time (Note: 10AM-1PM and 2PM-5PM are not available due to group walks)"
+        help_text="Preferred time (Note: 9AM-1PM, 1PM-5PM and 5PM-9PM are not available due to group walks)"
     )
     reason_for_individual = models.TextField(
         help_text="Why does your dog need to be walked alone? (In training, non-sociable, etc.)"
@@ -400,35 +405,41 @@ class IndividualWalk(BaseBooking):
             if any(safe_choice in preferred_lower for safe_choice in safe_choices):
                 return  # Skip time restriction validation for safe choices
 
-            # Only validate custom time entries for conflicts
-            morning_restricted = ['10:', '11:', '12:', '10am', '11am', '12pm', 'noon', 'midday']
-            afternoon_restricted = ['14:', '15:', '16:', '17:', '2pm', '3pm', '4pm', '5pm']
+            # Updated validation patterns for new restricted times
+            morning_restricted = ['09:', '10:', '11:', '12:', '9am', '10am', '11am', '12pm', 'noon', 'midday']
+            afternoon_restricted = ['13:', '14:', '15:', '16:', '1pm', '2pm', '3pm', '4pm']
+            evening_restricted = ['17:', '18:', '19:', '20:', '5pm', '6pm', '7pm', '8pm']
             
             conflicts = []
-            for pattern in morning_restricted + afternoon_restricted:
+            for pattern in morning_restricted:
                 if pattern in preferred_lower:
-                    if pattern in morning_restricted:
-                        conflicts.append("10:00 AM - 1:00 PM")
-                    else:
-                        conflicts.append("2:00 PM - 5:00 PM")
+                    conflicts.append("9:00 AM - 1:00 PM")
+                    break
+            for pattern in afternoon_restricted:
+                if pattern in preferred_lower:
+                    conflicts.append("1:00 PM - 5:00 PM")
+                    break
+            for pattern in evening_restricted:
+                if pattern in preferred_lower:
+                    conflicts.append("5:00 PM - 9:00 PM")
                     break
             
             if conflicts:
                 raise ValidationError(
                     f"Individual walks cannot be scheduled during {', '.join(set(conflicts))} "
                     "due to group walk sessions and required buffer time. "
-                    "Available times: 7:00-10:00 AM, 5:00-7:00 PM, or select 'Flexible'."
+                    "Available times: 7:00-9:00 AM, 9:00 PM onwards, or select 'Flexible'."
                 )
     
     @classmethod
     def get_available_time_suggestions(cls):
         """Get suggested available time slots for individual walks"""
         return [
-            "7:00 AM - 10:00 AM (Morning)",
-            "5:00 PM - 7:00 PM (Evening)", 
+            "7:00 AM - 9:00 AM (Early Morning)",
+            "9:00 PM - 11:00 PM (Late Evening)", 
             "Flexible (let us suggest a time)",
-            "Early morning (before 10 AM)",
-            "Late afternoon/evening (after 5 PM)"
+            "Early morning (before 9 AM)",
+            "Late evening (after 9 PM)"
         ]
     
     @property
@@ -449,6 +460,147 @@ class IndividualWalk(BaseBooking):
         return self.status == 'rejected'
 
 
+# Updated GroupWalkSlotManager to handle the new evening slot
+class GroupWalkSlotManager(models.Model):
+    """Admin model to manage group walk availability - UPDATED for 3 time slots"""
+    date = models.DateField(unique=True)
+    morning_slot_available = models.BooleanField(
+        default=True, 
+        help_text="10:00 AM - 12:00 PM slot available"
+    )
+    afternoon_slot_available = models.BooleanField(
+        default=True, 
+        help_text="2:00 PM - 4:00 PM slot available"
+    )
+    evening_slot_available = models.BooleanField(
+        default=True, 
+        help_text="6:00 PM - 8:00 PM slot available"
+    )
+
+    # Override capacity for specific dates if needed
+    morning_slot_capacity = models.IntegerField(
+        default=4,
+        validators=[MinValueValidator(0), MaxValueValidator(6)],
+        help_text="Maximum dogs for morning slot (0-6)"
+    )
+    afternoon_slot_capacity = models.IntegerField(
+        default=4,
+        validators=[MinValueValidator(0), MaxValueValidator(6)],
+        help_text="Maximum dogs for afternoon slot (0-6)"
+    )
+    evening_slot_capacity = models.IntegerField(
+        default=4,
+        validators=[MinValueValidator(0), MaxValueValidator(6)],
+        help_text="Maximum dogs for evening slot (0-6)"
+    )
+
+    notes = models.TextField(
+        blank=True, 
+        null=True, 
+        help_text="Admin notes for this date (holiday, weather, etc.)"
+    )
+
+    # Tracking
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['date']
+        verbose_name = "Group Walk Slot Manager"
+        verbose_name_plural = "Group Walk Slot Managers"
+    
+    def __str__(self):
+        return f"Slots for {self.date.strftime('%A, %B %d, %Y')}"
+    
+    def clean(self):
+        super().clean()
+        
+        # Validate date is not in the past
+        if self.date and self.date < date.today():
+            raise ValidationError("Cannot manage slots for past dates.")
+        
+        # Validate capacities
+        if self.morning_slot_capacity < 0:
+            raise ValidationError("Morning slot capacity cannot be negative.")
+        if self.afternoon_slot_capacity < 0:
+            raise ValidationError("Afternoon slot capacity cannot be negative.")
+        if self.evening_slot_capacity < 0:
+            raise ValidationError("Evening slot capacity cannot be negative.")
+    
+    @property
+    def morning_bookings_count(self):
+        """Get number of dogs booked for morning slot"""
+        return GroupWalk.objects.filter(
+            booking_date=self.date,
+            time_slot='10:00-12:00',
+            status='confirmed'
+        ).aggregate(total=models.Sum('number_of_dogs'))['total'] or 0
+    
+    @property
+    def afternoon_bookings_count(self):
+        """Get number of dogs booked for afternoon slot"""
+        return GroupWalk.objects.filter(
+            booking_date=self.date,
+            time_slot='14:00-16:00',
+            status='confirmed'
+        ).aggregate(total=models.Sum('number_of_dogs'))['total'] or 0
+    
+    @property
+    def evening_bookings_count(self):
+        """Get number of dogs booked for evening slot"""
+        return GroupWalk.objects.filter(
+            booking_date=self.date,
+            time_slot='18:00-20:00',
+            status='confirmed'
+        ).aggregate(total=models.Sum('number_of_dogs'))['total'] or 0
+    
+    @property
+    def morning_available_spots(self):
+        """Get available spots for morning slot"""
+        if not self.morning_slot_available:
+            return 0
+        return max(0, self.morning_slot_capacity - self.morning_bookings_count)
+    
+    @property
+    def afternoon_available_spots(self):
+        """Get available spots for afternoon slot"""
+        if not self.afternoon_slot_available:
+            return 0
+        return max(0, self.afternoon_slot_capacity - self.afternoon_bookings_count)
+    
+    @property
+    def evening_available_spots(self):
+        """Get available spots for evening slot"""
+        if not self.evening_slot_available:
+            return 0
+        return max(0, self.evening_slot_capacity - self.evening_bookings_count)
+    
+    def is_fully_booked(self):
+        """Check if all slots are fully booked"""
+        return (
+            (not self.morning_slot_available or self.morning_available_spots == 0) and
+            (not self.afternoon_slot_available or self.afternoon_available_spots == 0) and
+            (not self.evening_slot_available or self.evening_available_spots == 0)
+        )
+    
+    @classmethod
+    def get_or_create_for_date(cls, check_date):
+        """Get or create slot manager for a specific date"""
+        slot_manager, created = cls.objects.get_or_create(
+            date=check_date,
+            defaults={
+                'morning_slot_available': True,
+                'afternoon_slot_available': True,
+                'evening_slot_available': True,
+                'morning_slot_capacity': 4,
+                'afternoon_slot_capacity': 4,
+                'evening_slot_capacity': 4,
+            }
+        )
+        return slot_manager, created
+
+
+# Rest of the models remain the same...
 class Dog(models.Model):
     """Dog details - can belong to either group or individual walk"""
 
@@ -559,114 +711,6 @@ class Dog(models.Model):
         else:
             return f"{self.age} years old"
 
-
-class GroupWalkSlotManager(models.Model):
-    """Admin model to manage group walk availability"""
-    date = models.DateField(unique=True)
-    morning_slot_available = models.BooleanField(
-        default=True, 
-        help_text="11:00 AM - 12:00 PM slot available"
-    )
-    afternoon_slot_available = models.BooleanField(
-        default=True, 
-        help_text="3:00 PM - 4:00 PM slot available"
-    )
-
-    # Override capacity for specific dates if needed
-    morning_slot_capacity = models.IntegerField(
-        default=4,
-        validators=[MinValueValidator(0), MaxValueValidator(6)],
-        help_text="Maximum dogs for morning slot (0-6)"
-    )
-    afternoon_slot_capacity = models.IntegerField(
-        default=4,
-        validators=[MinValueValidator(0), MaxValueValidator(6)],
-        help_text="Maximum dogs for afternoon slot (0-6)"
-    )
-
-    notes = models.TextField(
-        blank=True, 
-        null=True, 
-        help_text="Admin notes for this date (holiday, weather, etc.)"
-    )
-
-    # Tracking
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        ordering = ['date']
-        verbose_name = "Group Walk Slot Manager"
-        verbose_name_plural = "Group Walk Slot Managers"
-    
-    def __str__(self):
-        return f"Slots for {self.date.strftime('%A, %B %d, %Y')}"
-    
-    def clean(self):
-        super().clean()
-        
-        # Validate date is not in the past
-        if self.date and self.date < date.today():
-            raise ValidationError("Cannot manage slots for past dates.")
-        
-        # Validate capacities
-        if self.morning_slot_capacity < 0:
-            raise ValidationError("Morning slot capacity cannot be negative.")
-        if self.afternoon_slot_capacity < 0:
-            raise ValidationError("Afternoon slot capacity cannot be negative.")
-    
-    @property
-    def morning_bookings_count(self):
-        """Get number of dogs booked for morning slot"""
-        return GroupWalk.objects.filter(
-            booking_date=self.date,
-            time_slot='11:00-12:00',
-            status='confirmed'
-        ).aggregate(total=models.Sum('number_of_dogs'))['total'] or 0
-    
-    @property
-    def afternoon_bookings_count(self):
-        """Get number of dogs booked for afternoon slot"""
-        return GroupWalk.objects.filter(
-            booking_date=self.date,
-            time_slot='15:00-16:00',
-            status='confirmed'
-        ).aggregate(total=models.Sum('number_of_dogs'))['total'] or 0
-    
-    @property
-    def morning_available_spots(self):
-        """Get available spots for morning slot"""
-        if not self.morning_slot_available:
-            return 0
-        return max(0, self.morning_slot_capacity - self.morning_bookings_count)
-    
-    @property
-    def afternoon_available_spots(self):
-        """Get available spots for afternoon slot"""
-        if not self.afternoon_slot_available:
-            return 0
-        return max(0, self.afternoon_slot_capacity - self.afternoon_bookings_count)
-    
-    def is_fully_booked(self):
-        """Check if both slots are fully booked"""
-        return (
-            (not self.morning_slot_available or self.morning_available_spots == 0) and
-            (not self.afternoon_slot_available or self.afternoon_available_spots == 0)
-        )
-    
-    @classmethod
-    def get_or_create_for_date(cls, check_date):
-        """Get or create slot manager for a specific date"""
-        slot_manager, created = cls.objects.get_or_create(
-            date=check_date,
-            defaults={
-                'morning_slot_available': True,
-                'afternoon_slot_available': True,
-                'morning_slot_capacity': 4,
-                'afternoon_slot_capacity': 4,
-            }
-        )
-        return slot_manager, created
 
 @receiver(post_delete, sender=GroupWalk)
 def delete_group_walk_calendar_event(sender, instance, **kwargs):

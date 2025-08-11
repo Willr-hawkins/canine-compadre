@@ -38,10 +38,10 @@ class GroupWalkForm(forms.ModelForm):
         # Set minimum date to tomorrow
         self.fields['booking_date'].widget.attrs['min'] = (date.today() + timedelta(days=1)).isoformat()
         
-        # Add help text
+        # Updated help text for new time slots
         self.fields['number_of_dogs'].help_text = "Maximum 4 dogs per individual booking (group walk session limited to 4 dogs total)"
         self.fields['booking_date'].help_text = "Select from available dates in the calendar"
-        self.fields['time_slot'].help_text = "Available slots: 11:00 AM - 12:00 PM or 3:00 PM - 4:00 PM"
+        self.fields['time_slot'].help_text = "Available slots: 10:00 AM - 12:00 PM, 2:00 PM - 4:00 PM, or 6:00 PM - 8:00 PM"
         self.fields['customer_postcode'].help_text = f"We serve: {', '.join(ALLOWED_POSTCODE_AREAS)} (within 10 miles of Croyde, North Devon)"
     
     def clean_booking_date(self):
@@ -101,12 +101,12 @@ class GroupWalkForm(forms.ModelForm):
 
 
 class IndividualWalkForm(forms.ModelForm):
-    # Add a choice field for common time preferences
+    # Updated choice field for new available time preferences
     preferred_time_choice = forms.ChoiceField(
         choices=[
             ('', 'Select a time preference...'),
-            ('early_morning', 'Early Morning (7:00 AM - 10:00 AM)'),
-            ('late_afternoon', 'Late Afternoon/Evening (5:00 PM - 7:00 PM)'),
+            ('early_morning', 'Early Morning (7:00 AM - 9:00 AM)'),  # Updated to avoid 9-1 restriction
+            ('late_evening', 'Late Evening (9:00 PM - 11:00 PM)'),   # New option after 9PM
             ('flexible', 'Flexible - let us suggest a time'),
             ('custom', 'Other specific time (please specify below)'),
         ],
@@ -145,10 +145,10 @@ class IndividualWalkForm(forms.ModelForm):
         # Set minimum date to tomorrow
         self.fields['preferred_date'].widget.attrs['min'] = (date.today() + timedelta(days=1)).isoformat()
         
-        # Add help text about restricted times
+        # Updated help text about restricted times for new schedule
         self.fields['preferred_time'].help_text = (
-            "⚠️ RESTRICTED TIMES: 10:00 AM - 1:00 PM and 2:00 PM - 5:00 PM are not available "
-            "due to group walk sessions and buffer time. Available: 7:00-10:00 AM or 5:00-7:00 PM"
+            "⚠️ RESTRICTED TIMES: 9:00 AM - 1:00 PM, 1:00 PM - 5:00 PM, and 5:00 PM - 9:00 PM are not available "
+            "due to group walk sessions and buffer time. Available: 7:00-9:00 AM or after 9:00 PM"
         )
         
         # Add labels and help text
@@ -159,7 +159,6 @@ class IndividualWalkForm(forms.ModelForm):
     
     def clean_preferred_date(self):
         preferred_date = self.cleaned_data.get('preferred_date')
-        # Fixed bug: was using undefined 'booking_date' variable
         if preferred_date and preferred_date <= date.today():
             raise ValidationError("Cannot request walks for past dates.")
         return preferred_date
@@ -191,9 +190,9 @@ class IndividualWalkForm(forms.ModelForm):
         
         # Map choices to actual text
         if preferred_time_choice == 'early_morning':
-            return 'Early Morning (7:00 AM - 10:00 AM)'
-        elif preferred_time_choice == 'late_afternoon':
-            return 'Late Afternoon/Evening (5:00 PM - 7:00 PM)'
+            return 'Early Morning (7:00 AM - 9:00 AM)'
+        elif preferred_time_choice == 'late_evening':
+            return 'Late Evening (9:00 PM - 11:00 PM)'
         elif preferred_time_choice == 'flexible':
             return 'Flexible - please suggest a suitable time'
         elif preferred_time_choice == 'custom':
@@ -211,31 +210,37 @@ class IndividualWalkForm(forms.ModelForm):
         
         # Only validate time if it's a custom time entry, not predefined choices
         if preferred_time and not any(x in preferred_time.lower() for x in [
-            'early morning', 'late afternoon', 'evening', 'flexible'
+            'early morning', 'late evening', 'flexible'
         ]):
             # Check for restricted time patterns only for custom times
             preferred_lower = preferred_time.lower()
             
-            # Define restricted patterns more comprehensively
+            # Updated restricted patterns for new schedule
             restricted_patterns = {
-                # Morning restricted period (10 AM - 1 PM)
-                'morning_restricted': ['10:', '11:', '12:', '10am', '11am', '12pm', 'noon', 'midday'],
-                # Afternoon restricted period (2 PM - 5 PM)  
-                'afternoon_restricted': ['14:', '15:', '16:', '17:', '2pm', '3pm', '4pm', '5pm']
+                # Morning restricted period (9 AM - 1 PM)
+                'morning_restricted': ['09:', '10:', '11:', '12:', '9am', '10am', '11am', '12pm', 'noon', 'midday'],
+                # Afternoon restricted period (1 PM - 5 PM)  
+                'afternoon_restricted': ['13:', '14:', '15:', '16:', '1pm', '2pm', '3pm', '4pm'],
+                # Evening restricted period (5 PM - 9 PM)
+                'evening_restricted': ['17:', '18:', '19:', '20:', '5pm', '6pm', '7pm', '8pm']
             }
             
             # Check if any restricted patterns are found
-            found_restricted = False
+            found_restricted = []
             for period, patterns in restricted_patterns.items():
                 if any(pattern in preferred_lower for pattern in patterns):
-                    found_restricted = True
-                    break
+                    if period == 'morning_restricted':
+                        found_restricted.append("9:00 AM - 1:00 PM")
+                    elif period == 'afternoon_restricted':
+                        found_restricted.append("1:00 PM - 5:00 PM")
+                    elif period == 'evening_restricted':
+                        found_restricted.append("5:00 PM - 9:00 PM")
             
             if found_restricted:
                 raise ValidationError(
-                    "Individual walks cannot be scheduled between 10:00 AM - 1:00 PM or 2:00 PM - 5:00 PM "
+                    f"Individual walks cannot be scheduled during {', '.join(set(found_restricted))} "
                     "due to group walk sessions and buffer time. "
-                    "Available times: 7:00-10:00 AM, 5:00-7:00 PM, or select 'Flexible'."
+                    "Available times: 7:00-9:00 AM, after 9:00 PM, or select 'Flexible'."
                 )
         
         return cleaned_data
@@ -361,9 +366,9 @@ class AdminResponseForm(forms.ModelForm):
             ('rejected', 'Rejected'),
         ]
         
-        # Add help text
+        # Updated help text for new available times
         self.fields['confirmed_date'].help_text = "Confirmed date for the walk (if approving)"
-        self.fields['confirmed_time'].help_text = "Confirmed time slot (if approving)"
+        self.fields['confirmed_time'].help_text = "Confirmed time slot (if approving) - Available: 7AM-9AM or after 9PM"
         self.fields['admin_response'].help_text = "Optional message to customer (will be emailed)"
     
     def clean_confirmed_date(self):

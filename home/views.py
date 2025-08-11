@@ -1,4 +1,3 @@
-
 from django.shortcuts import render, get_object_or_404, redirect
 from django.http import JsonResponse, Http404
 from django.contrib import messages
@@ -238,12 +237,12 @@ def individual_walk_booking(request):
     # Parse form data and handle preferred_time_choice conversion
     form_data = request.POST.copy()
     
-    # Handle preferred_time_choice conversion
+    # Handle preferred_time_choice conversion - UPDATED for new available times
     preferred_time_choice = form_data.get('preferred_time_choice')
     if preferred_time_choice == 'early_morning':
-        form_data['preferred_time'] = 'Early Morning (7:00 AM - 10:00 AM)'
-    elif preferred_time_choice == 'late_afternoon':
-        form_data['preferred_time'] = 'Late Afternoon/Evening (5:00 PM - 7:00 PM)'
+        form_data['preferred_time'] = 'Early Morning (7:00 AM - 9:00 AM)'
+    elif preferred_time_choice == 'late_evening':
+        form_data['preferred_time'] = 'Late Evening (9:00 PM - 11:00 PM)'
     elif preferred_time_choice == 'flexible':
         form_data['preferred_time'] = 'Flexible - please suggest a suitable time'
     # For 'custom', leave the preferred_time as is (user entered)
@@ -494,7 +493,7 @@ def get_availability_calendar(request):
         return JsonResponse({'error': 'An error occurred while loading availability'}, status=500)
 
 def check_slot_availability(request):
-    """AJAX endpoint to check specific slot availability in real-time"""
+    """AJAX endpoint to check specific slot availability in real-time - UPDATED for new time slots"""
     try:
         booking_date = request.GET.get('date')
         time_slot = request.GET.get('time_slot')
@@ -522,14 +521,22 @@ def check_slot_availability(request):
         max_capacity = 4  # default
         
         if slot_manager:
-            if time_slot == '11:00-12:00' and not slot_manager.morning_slot_available:
+            # UPDATED for new time slots
+            if time_slot == '10:00-12:00' and not slot_manager.morning_slot_available:
                 return JsonResponse({
                     'available_spots': 0,
                     'can_book': False,
                     'requested_dogs': num_dogs,
                     'message': 'This time slot is not available on this date'
                 })
-            elif time_slot == '15:00-16:00' and not slot_manager.afternoon_slot_available:
+            elif time_slot == '14:00-16:00' and not slot_manager.afternoon_slot_available:
+                return JsonResponse({
+                    'available_spots': 0,
+                    'can_book': False,
+                    'requested_dogs': num_dogs,
+                    'message': 'This time slot is not available on this date'
+                })
+            elif time_slot == '18:00-20:00' and not slot_manager.evening_slot_available:
                 return JsonResponse({
                     'available_spots': 0,
                     'can_book': False,
@@ -537,12 +544,13 @@ def check_slot_availability(request):
                     'message': 'This time slot is not available on this date'
                 })
             
-            # Use custom capacity if set
-            max_capacity = (
-                slot_manager.morning_slot_capacity 
-                if time_slot == '11:00-12:00' 
-                else slot_manager.afternoon_slot_capacity
-            )
+            # Use custom capacity if set - UPDATED for new time slots
+            if time_slot == '10:00-12:00':
+                max_capacity = slot_manager.morning_slot_capacity
+            elif time_slot == '14:00-16:00':
+                max_capacity = slot_manager.afternoon_slot_capacity
+            elif time_slot == '18:00-20:00':
+                max_capacity = slot_manager.evening_slot_capacity
         
         # Calculate available spots
         total_dogs_booked = GroupWalk.objects.filter(

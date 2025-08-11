@@ -305,6 +305,35 @@ p {
     animation: fadeIn 0.3s ease-in;
 }
 
+.evening-slot {
+        border-left: 4px solid #6f42c1 !important;
+    }
+
+.evening-slot .time-display {
+    color: #6f42c1;
+    font-weight: 600;
+}
+
+.evening-label {
+    background: linear-gradient(45deg, #6f42c1, #9d64ff);
+    color: white;
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-size: 0.7rem;
+    display: inline-block;
+    margin-top: 2px;
+}
+
+.time-slot.evening-slot.available:hover {
+    background: linear-gradient(45deg, #6f42c1, #9d64ff);
+    color: white;
+}
+
+.time-slot.evening-slot.selected {
+    background: #6f42c1 !important;
+    color: white !important;
+}
+
 @keyframes fadeIn {
     from {
         opacity: 0;
