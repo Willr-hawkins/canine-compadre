@@ -18,9 +18,9 @@ class GoogleCalendarService:
     
     def _get_calendar_service(self):
         try:
-            # Try to read credentials from secret file
-            credentials_path = os.environ.get('GOOGLE_SERVICE_ACCOUNT_FILE', '/run/secrets/google_credentials.json')
-
+            # Render secret files are mounted at /etc/secrets/
+            credentials_path = '/etc/secrets/google_credentials.json'
+            
             if not os.path.exists(credentials_path):
                 logger.error(f"Google credentials file not found at: {credentials_path}")
                 return None
