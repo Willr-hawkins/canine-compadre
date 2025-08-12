@@ -856,3 +856,69 @@ def test_email_integration(request):
     except Exception as e:
         logger.error(f"Email integration test failed: {str(e)}")
         return JsonResponse({'error': str(e)})
+
+def debug_booking(request):
+    """Temporary debug endpoint to identify production issues"""
+    try:
+        # Test 1: Basic imports
+        from .models import GroupWalk, IndividualWalk, Dog
+        from .forms import GroupWalkForm, IndividualWalkForm
+        
+        # Test 2: Database connection
+        group_count = GroupWalk.objects.count()
+        individual_count = IndividualWalk.objects.count()
+        dog_count = Dog.objects.count()
+        
+        # Test 3: Settings
+        business_email = getattr(settings, 'BUSINESS_EMAIL', 'NOT FOUND')
+        site_url = getattr(settings, 'SITE_URL', 'NOT FOUND')
+        admin_email = getattr(settings, 'ADMIN_EMAIL', 'NOT FOUND')
+        
+        # Test 4: Integration status
+        try:
+            from .calendar_service import GoogleCalendarService
+            calendar_service = GoogleCalendarService()
+            calendar_working = calendar_service.service is not None
+        except Exception as cal_e:
+            calendar_working = f"Calendar Error: {str(cal_e)}"
+        
+        try:
+            from .email_service import EmailService
+            email_working = True
+        except Exception as email_e:
+            email_working = f"Email Error: {str(email_e)}"
+        
+        # Test 5: Form creation
+        test_form = GroupWalkForm()
+        form_working = True
+        
+        return JsonResponse({
+            'status': 'success',
+            'database': {
+                'group_walks': group_count,
+                'individual_walks': individual_count,
+                'dogs': dog_count
+            },
+            'settings': {
+                'business_email': business_email,
+                'site_url': site_url,
+                'admin_email': admin_email
+            },
+            'integrations': {
+                'calendar': calendar_working,
+                'email': email_working,
+                'integrations_available': INTEGRATIONS_AVAILABLE
+            },
+            'forms': {
+                'form_creation': form_working
+            }
+        })
+        
+    except Exception as e:
+        import traceback
+        return JsonResponse({
+            'status': 'error',
+            'error': str(e),
+            'error_type': type(e).__name__,
+            'traceback': traceback.format_exc()
+        })

@@ -23,4 +23,6 @@ urlpatterns = [
     
     # Utility endpoints
     path('health/', views.health_check, name='health_check'),
+
+    path('debug-booking/', views.debug_booking, name='debug_booking'),
 ]
