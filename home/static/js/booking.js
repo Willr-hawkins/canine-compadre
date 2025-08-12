@@ -197,23 +197,10 @@ document.addEventListener('DOMContentLoaded', function() {
         addRealTimeValidation();
     }
     
+    
     async function loadGroupWalkFormContent() {
-        try {
-            const response = await fetch('/api/group-form/');
-            if (response.ok) {
-                const html = await response.text();
-                const groupForm = document.getElementById('group-walk-form');
-                if (groupForm) {
-                    groupForm.innerHTML = html;
-                }
-            } else {
-                // Fallback to basic form structure
-                loadBasicGroupForm();
-            }
-        } catch (error) {
-            console.error('Error loading group form:', error);
-            loadBasicGroupForm();
-        }
+        // Always use the basic form since template is disabled
+        loadBasicGroupForm();
     }
     
     function loadBasicGroupForm() {

@@ -56,12 +56,15 @@ class GoogleCalendarService:
         try:
             # Parse time slot
             time_slot = booking.time_slot
-            if time_slot == '11:00-12:00':
-                start_time = '11:00:00'
+            if time_slot == '10:00-12:00':
+                start_time = '10:00:00'
                 end_time = '12:00:00'
-            elif time_slot == '15:00-16:00':
-                start_time = '15:00:00'
+            elif time_slot == '14:00-16:00':
+                start_time = '14:00:00'
                 end_time = '16:00:00'
+            elif time_slot == '18:00-20:00':
+                start_time = '18:00:00'
+                end_time = '20:00:00'
             else:
                 logger.error(f"Unknown time slot: {time_slot}")
                 return None
