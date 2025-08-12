@@ -895,15 +895,15 @@ def debug_booking(request):
                     json_parse_ok = False
                 
                 if json_parse_ok:
-                    # Test 4c: Create credentials
+                    # Test 4c: Create credentials - FIXED VERSION
                     try:
                         credentials = service_account.Credentials.from_service_account_info(
-                            credentials_info,
+                            credentials_info,  # This should be a dict, not a string
                             scopes=['https://www.googleapis.com/auth/calendar']
                         )
                         credentials_ok = True
                     except Exception as cred_e:
-                        calendar_working = f"Credentials creation error: {str(cred_e)}"
+                        calendar_working = f"Credentials creation error: {str(cred_e)} | Type: {type(credentials_info)}"
                         credentials_ok = False
                     
                     if credentials_ok:
@@ -923,7 +923,7 @@ def debug_booking(request):
                                 calendar_working = f"SUCCESS: Calendar '{calendar.get('summary', 'Unknown')}' accessible"
                             except Exception as cal_access_e:
                                 calendar_working = f"Calendar access error: {str(cal_access_e)}"
-            
+
         except Exception as e:
             calendar_working = f"Import or general error: {str(e)}"
         
