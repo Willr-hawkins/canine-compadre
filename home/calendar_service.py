@@ -19,7 +19,6 @@ class GoogleCalendarService:
     def _get_calendar_service(self):
         """Initialize Google Calendar API service"""
         try:
-            # Get credentials from environment variable (JSON string) or file
             google_key = os.environ.get('GOOGLE_SERVICE_ACCOUNT_KEY')
             if google_key:
                 # For production (Render) - JSON as string in environment variable
@@ -28,7 +27,11 @@ class GoogleCalendarService:
                 except json.JSONDecodeError as e:
                     logger.error(f"Error parsing GOOGLE_SERVICE_ACCOUNT_KEY JSON: {str(e)}")
                     return None
-                
+
+                # Fix private_key formatting for Render/Heroku-style env vars
+                if "private_key" in credentials_info:
+                    credentials_info["private_key"] = credentials_info["private_key"].replace("\\n", "\n")
+
                 credentials = service_account.Credentials.from_service_account_info(
                     credentials_info,
                     scopes=['https://www.googleapis.com/auth/calendar']
