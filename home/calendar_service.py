@@ -20,9 +20,15 @@ class GoogleCalendarService:
         """Initialize Google Calendar API service"""
         try:
             # Get credentials from environment variable (JSON string) or file
-            if hasattr(settings, 'GOOGLE_SERVICE_ACCOUNT_KEY') and settings.GOOGLE_SERVICE_ACCOUNT_KEY:
+            google_key = os.environ.get('GOOGLE_SERVICE_ACCOUNT_KEY')
+            if google_key:
                 # For production (Render) - JSON as string in environment variable
-                credentials_info = json.loads(settings.GOOGLE_SERVICE_ACCOUNT_KEY)
+                try:
+                    credentials_info = json.loads(google_key)
+                except json.JSONDecodeError as e:
+                    logger.error(f"Error parsing GOOGLE_SERVICE_ACCOUNT_KEY JSON: {str(e)}")
+                    return None
+                
                 credentials = service_account.Credentials.from_service_account_info(
                     credentials_info,
                     scopes=['https://www.googleapis.com/auth/calendar']
