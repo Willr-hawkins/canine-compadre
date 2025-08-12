@@ -858,7 +858,7 @@ def test_email_integration(request):
         return JsonResponse({'error': str(e)})
 
 def debug_booking(request):
-    """Temporary debug endpoint to identify production issues"""
+    """Enhanced debug endpoint to identify calendar service issues"""
     try:
         # Test 1: Basic imports
         from .models import GroupWalk, IndividualWalk, Dog
@@ -874,21 +874,67 @@ def debug_booking(request):
         site_url = getattr(settings, 'SITE_URL', 'NOT FOUND')
         admin_email = getattr(settings, 'ADMIN_EMAIL', 'NOT FOUND')
         
-        # Test 4: Integration status
+        # Test 4: Enhanced calendar testing
         try:
-            from .calendar_service import GoogleCalendarService
-            calendar_service = GoogleCalendarService()
-            calendar_working = calendar_service.service is not None
-        except Exception as cal_e:
-            calendar_working = f"Calendar Error: {str(cal_e)}"
+            import json
+            import os
+            from google.oauth2 import service_account
+            from googleapiclient.discovery import build
+            
+            # Test 4a: Check environment variable exists
+            google_key = os.environ.get('GOOGLE_SERVICE_ACCOUNT_KEY')
+            if not google_key:
+                calendar_working = "GOOGLE_SERVICE_ACCOUNT_KEY environment variable not found"
+            else:
+                # Test 4b: Parse JSON
+                try:
+                    credentials_info = json.loads(google_key)
+                    json_parse_ok = True
+                except json.JSONDecodeError as e:
+                    calendar_working = f"JSON parse error: {str(e)}"
+                    json_parse_ok = False
+                
+                if json_parse_ok:
+                    # Test 4c: Create credentials
+                    try:
+                        credentials = service_account.Credentials.from_service_account_info(
+                            credentials_info,
+                            scopes=['https://www.googleapis.com/auth/calendar']
+                        )
+                        credentials_ok = True
+                    except Exception as cred_e:
+                        calendar_working = f"Credentials creation error: {str(cred_e)}"
+                        credentials_ok = False
+                    
+                    if credentials_ok:
+                        # Test 4d: Build service
+                        try:
+                            service = build('calendar', 'v3', credentials=credentials)
+                            service_ok = True
+                        except Exception as service_e:
+                            calendar_working = f"Service build error: {str(service_e)}"
+                            service_ok = False
+                        
+                        if service_ok:
+                            # Test 4e: Access calendar
+                            try:
+                                cal_id = getattr(settings, 'GOOGLE_CALENDAR_ID', 'primary')
+                                calendar = service.calendars().get(calendarId=cal_id).execute()
+                                calendar_working = f"SUCCESS: Calendar '{calendar.get('summary', 'Unknown')}' accessible"
+                            except Exception as cal_access_e:
+                                calendar_working = f"Calendar access error: {str(cal_access_e)}"
+            
+        except Exception as e:
+            calendar_working = f"Import or general error: {str(e)}"
         
+        # Test 5: Email service
         try:
             from .email_service import EmailService
             email_working = True
         except Exception as email_e:
             email_working = f"Email Error: {str(email_e)}"
         
-        # Test 5: Form creation
+        # Test 6: Form creation
         test_form = GroupWalkForm()
         form_working = True
         
