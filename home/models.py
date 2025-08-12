@@ -18,7 +18,7 @@ class BaseBooking(models.Model):
     customer_phone = models.CharField(max_length=15)
     customer_address = models.TextField()
     customer_postcode = models.CharField(
-        max_length=10, 
+        max_length=20, 
         help_text="We serve within 10 miles of Croyde, North Devon (EX31-EX34 postcodes)"
     )
 
