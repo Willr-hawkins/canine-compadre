@@ -24,6 +24,8 @@ class GoogleCalendarService:
                 # For production (Render) - JSON as string in environment variable
                 try:
                     credentials_info = json.loads(google_key)
+                    if "private_key" in credentials_info:
+                        credentials_info["private_key"] = credentials_info["private_key"].replace("\\n", "\n")
                 except json.JSONDecodeError as e:
                     logger.error(f"Error parsing GOOGLE_SERVICE_ACCOUNT_KEY JSON: {str(e)}")
                     return None
