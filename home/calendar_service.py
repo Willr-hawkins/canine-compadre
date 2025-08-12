@@ -17,39 +17,23 @@ class GoogleCalendarService:
         self.service = self._get_calendar_service()
     
     def _get_calendar_service(self):
-        """Initialize Google Calendar API service"""
         try:
-            google_key = os.environ.get('GOOGLE_SERVICE_ACCOUNT_KEY')
-            if google_key:
-                # Fix: Replace literal '\\n' with actual newline characters BEFORE parsing JSON
-                google_key_fixed = google_key.replace('\\n', '\n')
+            # Try to read credentials from secret file
+            credentials_path = os.environ.get('GOOGLE_SERVICE_ACCOUNT_FILE', '/run/secrets/google_credentials.json')
 
-                try:
-                    credentials_info = json.loads(google_key_fixed)
-                except json.JSONDecodeError as e:
-                    logger.error(f"Error parsing GOOGLE_SERVICE_ACCOUNT_KEY JSON: {str(e)}")
-                    return None
+            if not os.path.exists(credentials_path):
+                logger.error(f"Google credentials file not found at: {credentials_path}")
+                return None
 
-                credentials = service_account.Credentials.from_service_account_info(
-                    credentials_info,
-                    scopes=['https://www.googleapis.com/auth/calendar']
-                )
-            else:
-                # For development - JSON file
-                credentials_path = os.path.join(settings.BASE_DIR, 'google_credentials.json')
-                if not os.path.exists(credentials_path):
-                    logger.error(f"Google credentials file not found at: {credentials_path}")
-                    return None
-                
-                credentials = service_account.Credentials.from_service_account_file(
-                    credentials_path,
-                    scopes=['https://www.googleapis.com/auth/calendar']
-                )
-            
+            credentials = service_account.Credentials.from_service_account_file(
+                credentials_path,
+                scopes=['https://www.googleapis.com/auth/calendar']
+            )
+
             service = build('calendar', 'v3', credentials=credentials)
             logger.info("Google Calendar service initialized successfully")
             return service
-            
+
         except Exception as e:
             logger.error(f"Error initializing Google Calendar service: {str(e)}")
             return None
