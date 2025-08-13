@@ -968,3 +968,36 @@ def debug_booking(request):
             'error_type': type(e).__name__,
             'traceback': traceback.format_exc()
         })
+
+@require_http_methods(["GET"])
+def get_unavailable_dates(request):
+    """API endpoint to get all unavailable dates for individual walk form validation"""
+    try:
+        from datetime import date, timedelta
+        
+        # Get all future dates that are completely unavailable
+        today = date.today()
+        unavailable_dates = []
+        
+        # Get slot managers where all slots are disabled
+        slot_managers = GroupWalkSlotManager.objects.filter(
+            date__gte=today,
+            morning_slot_available=False,
+            afternoon_slot_available=False,
+            evening_slot_available=False
+        )
+        
+        for slot_manager in slot_managers:
+            unavailable_dates.append(slot_manager.date.isoformat())
+        
+        return JsonResponse({
+            'success': True,
+            'unavailable_dates': unavailable_dates
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting unavailable dates: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'error': 'Error loading unavailable dates'
+        })

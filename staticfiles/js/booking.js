@@ -734,6 +734,28 @@ document.addEventListener('DOMContentLoaded', function() {
                 </button>
             </div>
         `;
+
+        // Fetch unavailable dates and disable them in the date picker
+        fetch('/api/unavailable-dates/')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.unavailable_dates) {
+                    const dateInput = document.getElementById('preferred_date');
+                    if (dateInput) {
+                        // Add event listener to validate selected date
+                        dateInput.addEventListener('change', function() {
+                            const selectedDate = this.value;
+                            if (data.unavailable_dates.includes(selectedDate)) {
+                                alert('Sorry, this date is not available for walks. Please choose a different date.');
+                                this.value = '';
+                            }
+                        });
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error loading unavailable dates:', error);
+            });
     }
     
     function handleTimeChoice() {

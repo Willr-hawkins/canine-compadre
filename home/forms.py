@@ -161,6 +161,26 @@ class IndividualWalkForm(forms.ModelForm):
         preferred_date = self.cleaned_data.get('preferred_date')
         if preferred_date and preferred_date <= date.today():
             raise ValidationError("Cannot request walks for past dates.")
+        
+        # NEW: Check if date is marked unavailable
+        if preferred_date:
+            from .models import GroupWalkSlotManager
+            
+            try:
+                slot_manager = GroupWalkSlotManager.objects.get(date=preferred_date)
+                # If all slots are unavailable, block the request
+                if (not slot_manager.morning_slot_available and 
+                    not slot_manager.afternoon_slot_available and 
+                    not slot_manager.evening_slot_available):
+                    raise ValidationError(
+                        f"Sorry, {preferred_date.strftime('%B %d, %Y')} is not available for walks. "
+                        f"Reason: {slot_manager.notes or 'Date marked unavailable'}. "
+                        f"Please choose a different date."
+                    )
+            except GroupWalkSlotManager.DoesNotExist:
+                # Date is available (no slot manager = available)
+                pass
+        
         return preferred_date
     
     def clean_customer_postcode(self):
