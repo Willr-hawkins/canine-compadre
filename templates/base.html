@@ -6,11 +6,39 @@
     {% block meta %}
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Canine Compadre - Professional Dog Walking Services</title>
+
+        <!-- Primary SEO Meta Tags -->
+        <title>{% block title %}Canine Compadre - Professional Dog Walking Services in the Croyde area.{% endblock %}</title>
+        <meta name="description" content="{% block description %}Canine Compadre offers professional, friendly, and reliable dog walking services in Croyde area, ensuring every dog enjoys a safe and happy walk.{% endblock %}">
+        <meta name="keywords" content="{% block keywords %}dog walking, pet care, professional dog walker, canine care, dog sitter, reliable dog walker{% endblock %}">
+        <meta name="author" content="Canine Compadre">
+        <meta name="robots" content="index, follow">
+
+        <!-- Canonical URL -->
+        <link rel="canonical" href="{% block canonical %}https://caninecompadre.co.uk{% endblock %}">
+
+        <!-- Open Graph / Facebook -->
+        <meta property="og:type" content="website">
+        <meta property="og:title" content="{% block og_title %}Canine Compadre - Professional Dog Walking Services{% endblock %}">
+        <meta property="og:description" content="{% block og_description %}Friendly, reliable, and professional dog walking in the Croyde area. Giving your dog the care, exercise, and attention they deserve.{% endblock %}">
+        <meta property="og:url" content="{% block og_url %}https://caninecompadre.co.uk{% endblock %}">
+        <meta property="og:site_name" content="Canine Compadre">
+        <meta property="og:image" content="{% block og_image %}https://caninecompadre.co.uk{% static 'images/Canine-Compadre-Logo.png' %}{% endblock %}">
+        <meta property="og:image:width" content="1200">
+        <meta property="og:image:height" content="630">
+        <meta property="og:locale" content="en_GB">
+
+        <!-- Additional SEO Meta Tags -->
+        <meta name="geo.region" content="GB">
+        <meta name="geo.placename" content="Croyde">
+
+        <!-- Favicon -->
+        <link rel="icon" type="image/x-icon" href="{% static 'images/favicon.ico' %}">
+        <link rel="apple-touch-icon" sizes="180x180" href="{% static 'images/apple-touch-icon.png' %}">
     {% endblock %}
 
     {% block corecss %}
-        <!-- Bootsrap CSS -->
+        <!-- Bootstrap CSS -->
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
             integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
         <!-- Bootstrap icons CSS -->
@@ -32,48 +60,77 @@
                 integrity="sha384-0pUGZvbkm6XF6gxjEnlmuGrJXVbNuzT9qBBavbLwCsOGabYfZo0T0to5eqruptLy" crossorigin="anonymous">
         </script>
     {% endblock %}
+
+    <!-- Structured Data - Local Business -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "PetService",
+        "name": "Canine Compadre",
+        "description": "Professional dog walking services in [Your Location]. Safe, friendly, and reliable walks for your canine friends.",
+        "url": "https://caninecompadre.co.uk",
+        "logo": "https://caninecompadre.co.uk{% static 'images/Canine-Compadre-Logo.png' %}",
+        "image": "https://caninecompadre.co.uk{% static 'images/Canine-Compadre-Logo.png' %}",
+        "keywords": "dog walking, pet care, professional dog walker, canine care, dog sitter"
+    }
+    </script>
+
+    <!-- Structured Data - Website -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "Canine Compadre",
+        "url": "https://caninecompadre.co.uk",
+        "description": "Professional dog walking services in the Croyde area.",
+        "potentialAction": {
+            "@type": "SearchAction",
+            "target": "https://caninecompadre.co.uk/search?q={search_term_string}",
+            "query-input": "required name=search_term_string"
+        }
+    }
+    </script>
 </head>
 <body>
     <!-- Navbar -->
-        <div class="container">
-            <nav class="navbar navbar-expand-lg fixed-top">
-                <div class="container-fluid">
-                    <!-- Brand / Logo -->
-                    <a class="navbar-brand" href="#">Canine Compadre</a>
+    <div class="container">
+        <nav class="navbar navbar-expand-lg fixed-top">
+            <div class="container-fluid">
+                <!-- Brand / Logo -->
+                <a class="navbar-brand" href="#">Canine Compadre</a>
 
-                    <!-- Toggle Button (hamburger icon) -->
-                    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar" aria-controls="mainNavbar" aria-expanded="false" aria-label="Toggle navigation">
-                        <span class="navbar-toggler-icon"></span>
-                    </button>
-                    <hr>
-                    <!-- Collapsible Navigation Links -->
-                    <div class="collapse navbar-collapse justify-content-end" id="mainNavbar">
-                        <ul class="navbar-nav d-flex flex-row flex-lg-row justify-content-center gap-3">
-                            <li class="nav-item">
-                                <a class="nav-link active" aria-current="page" href="#home">Home</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="#about">About</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="#services">Services</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="#pricing">Pricing</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="#booking">Booking</a>
-                            </li>
-                        </ul>
-                    </div>
+                <!-- Toggle Button (hamburger icon) -->
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar" aria-controls="mainNavbar" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <hr>
+                <!-- Collapsible Navigation Links -->
+                <div class="collapse navbar-collapse justify-content-end" id="mainNavbar">
+                    <ul class="navbar-nav d-flex flex-row flex-lg-row justify-content-center gap-3">
+                        <li class="nav-item">
+                            <a class="nav-link active" aria-current="page" href="#home">Home</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#about">About</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#services">Services</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#pricing">Pricing</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#booking">Booking</a>
+                        </li>
+                    </ul>
                 </div>
-            </nav>
-        </div>
-    
+            </div>
+        </nav>
+    </div>
+
     <div class="scroll-container">
         {% block content %}
         {% endblock %}
     </div>
-
 </body>
 </html>
