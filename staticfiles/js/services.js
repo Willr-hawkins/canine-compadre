@@ -16,7 +16,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 <h4 style="text-decoration: underline;">Individual Walks</h4>
                 <p>We provide one-on-one walks for dogs that need personalized attention or don't do well with others.
                 These are scheduled by appointment to match your dog's needs and your availability.</p>
-                <p>Please be aware that all our services are only aviable to you if you are within a
+                <p>Please be aware that all our services are only available to you if you are within a
                 10 mile raduis Croyde, North Devon!</p>
                 <p class="text-center mt-3"><strong>Please note: These walks require approval and booking confirmation.</strong></p>
             </div>
