@@ -1,9 +1,12 @@
 html {
-    scroll-snap-type: y mandatory;;
+    scroll-snap-type: y mandatory;
+    height: auto;
+    min-height: 100vh;
 }
 
 body {
     background-image: url(../images/canine-compadre-background.png);
+    min-height: 100vh;
 }
 
 p {
@@ -176,7 +179,6 @@ p {
     font-weight: 600;
 }
 
-
 /* Pricing section */
 .pricing-container {
     background: rgba(0, 0, 0, 0.3);
@@ -306,8 +308,8 @@ p {
 }
 
 .evening-slot {
-        border-left: 4px solid #6f42c1 !important;
-    }
+    border-left: 4px solid #6f42c1 !important;
+}
 
 .evening-slot .time-display {
     color: #6f42c1;
@@ -350,6 +352,157 @@ p {
     color: #6c757d;
 }
 
+/* Footer as Snap Section */
+.footer-section {
+    background: linear-gradient(135deg, rgba(45, 77, 56, 0.95), rgba(41, 47, 61, 0.95));
+    backdrop-filter: blur(10px);
+    border-top: 4px solid #F5EFE0;
+    color: #F5EFE0;
+    
+    /* Now it's a proper snap section like all the others */
+    min-height: 100vh !important;
+    padding-top: 120px !important;
+    box-sizing: border-box;
+    margin-bottom: 2.5rem;
+    scroll-snap-align: center;
+    scroll-snap-stop: always;
+}
+
+.footer-container {
+    max-width: 1200px;
+    /* Center content vertically within the section */
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.footer-logo {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    border: 2px solid #F5EFE0;
+    margin-bottom: 1rem;
+}
+
+.footer-brand {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #F5EFE0;
+    margin-bottom: 0.5rem;
+}
+
+.footer-tagline {
+    font-size: 0.95rem;
+    color: #E8E0D0;
+    line-height: 1.4;
+    margin-bottom: 0;
+}
+
+.footer-heading {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #F5EFE0;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid #2D4D38;
+}
+
+.footer-links {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.footer-links li {
+    margin-bottom: 0.5rem;
+}
+
+.footer-links a {
+    color: #E8E0D0;
+    text-decoration: none;
+    font-size: 0.95rem;
+    transition: all 0.3s ease;
+    display: inline-block;
+}
+
+.footer-links a:hover {
+    color: #F5EFE0;
+    transform: translateX(5px);
+    text-decoration: underline;
+}
+
+.footer-contact p {
+    color: #E8E0D0;
+    font-size: 0.95rem;
+    margin-bottom: 0.7rem;
+    line-height: 1.4;
+}
+
+.footer-contact i {
+    color: #2D4D38;
+    width: 20px;
+}
+
+.footer-social {
+    margin-top: 1rem;
+}
+
+.social-icon {
+    display: inline-block;
+    width: 35px;
+    height: 35px;
+    background: rgba(245, 239, 224, 0.1);
+    border: 1px solid #2D4D38;
+    border-radius: 50%;
+    text-align: center;
+    line-height: 33px;
+    color: #F5EFE0;
+    text-decoration: none;
+    transition: all 0.3s ease;
+}
+
+.social-icon:hover {
+    background: #2D4D38;
+    color: #F5EFE0;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.footer-divider {
+    border-color: #2D4D38;
+    margin: 2rem 0 1rem 0;
+}
+
+.footer-copyright,
+.footer-shout-out {
+    font-size: 0.9rem;
+    color: #E8E0D0;
+    margin-bottom: 0;
+}
+
+/* Back to top arrow styling */
+.back-to-top-arrow {
+    text-decoration: none;
+    color: #F5EFE0;
+    transition: 0.3s ease;
+}
+
+.bi-arrow-up {
+    font-weight: 1100 !important;
+    font-size: 3rem !important;
+}
+
+.back-to-top-arrow:hover {
+    color: #F5EFE0;
+    transform: scale(1.2);
+}
+
+@keyframes heartbeat {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
 
 /*-------------------*/
 /* Media queries */
@@ -375,64 +528,103 @@ p {
         font-size: 1rem;
     }
 
-  .snap-section {
-    padding-top: 100px !important;
-    padding-bottom: 20px;
-    margin-bottom: 2rem;
-    scroll-snap-align: start;
-  }
+    .snap-section {
+        padding-top: 100px !important;
+        padding-bottom: 20px;
+        margin-bottom: 2rem;
+        scroll-snap-align: start;
+    }
 
-  .navbar {
-    flex-direction: column;
-    text-align: center;
-    width: 95%;
-    padding: 0.5rem 1rem;
-  }
+    .navbar {
+        flex-direction: column;
+        text-align: center;
+        width: 95%;
+        padding: 0.5rem 1rem;
+    }
 
-  .navbar-brand {
-    font-size: 1.4rem;
-  }
+    .navbar-brand {
+        font-size: 1.4rem;
+    }
 
-  .nav-item {
-    font-size: 0.9rem;
-    font-weight: 600;
-    margin-top: 10px;
-   }
+    .nav-item {
+        font-size: 0.9rem;
+        font-weight: 600;
+        margin-top: 10px;
+    }
 
-  .header-logo {
-    max-width: 140px;
-    max-height: 140px;
-  }
+    .header-logo {
+        max-width: 140px;
+        max-height: 140px;
+    }
 
-  .home-container,
-  .about-container,
-  .services-container,
-  .pricing-container,
-  .booking-container {
-    width: 90%;
-    padding-left: 5px;
-    padding-right: 5px;
-  }
+    .home-container,
+    .about-container,
+    .services-container,
+    .pricing-container,
+    .booking-container {
+        width: 90%;
+        padding-left: 5px;
+        padding-right: 5px;
+    }
 
-  .group-service-card {
-    margin-bottom: 10px;
-  }
+    .group-service-card {
+        margin-bottom: 10px;
+    }
 
-  .individual-service-card {
-    margin-top: 10px;
-  }
+    .individual-service-card {
+        margin-top: 10px;
+    }
 
-  .services-card {
-    width: 15rem;
-    height: auto;
-  }
+    .services-card {
+        width: 15rem;
+        height: auto;
+    }
 
-  .about-img-float {
-    float: none;
-    max-width: 90%;
-  }
+    .about-img-float {
+        float: none;
+        max-width: 90%;
+    }
+
+    /* Footer mobile styles */
+    .footer-section {
+        /* On mobile, disable snap scrolling for footer */
+        scroll-snap-align: none;
+        scroll-snap-stop: unset;
+        padding-top: 100px !important;
+        padding-bottom: 20px;
+        margin-bottom: 2rem;
+    }
+    
+    .footer-logo {
+        width: 60px;
+        height: 60px;
+    }
+    
+    .footer-brand {
+        font-size: 1.3rem;
+    }
+    
+    .footer-tagline,
+    .footer-links a,
+    .footer-contact p {
+        font-size: 0.9rem;
+    }
+    
+    .col-md-6.text-md-end {
+        text-align: center !important;
+        margin-top: 1rem;
+    }
+    
+    .footer-heading {
+        font-size: 1rem;
+        margin-top: 1.5rem;
+    }
+    
+    .footer-heading:first-child {
+        margin-top: 0;
+    }
+
+    .bi-arrow-up {
+        font-size: 2.5rem !important;
+    }
 }
-
-
-
-
