@@ -408,3 +408,230 @@ Alex
 Canine Compadre
 {settings.BUSINESS_EMAIL}
             """.strip()
+
+    @staticmethod
+    def send_multi_booking_confirmation(bookings):
+        """Send confirmation email for multiple bookings"""
+        if not bookings:
+            return False
+            
+        first_booking = bookings[0]
+        total_bookings = len(bookings)
+        
+        try:
+            # Sort bookings by date and time
+            sorted_bookings = sorted(bookings, key=lambda b: (b.booking_date, b.time_slot))
+            
+            # Get dog names (same across all bookings)
+            dog_names = [dog.name for dog in first_booking.dogs.all()]
+            dogs_text = ', '.join(dog_names)
+            
+            subject = f"Multiple Group Walk Bookings Confirmed - {total_bookings} walks for {first_booking.customer_name}"
+            
+            # Create booking list for email
+            booking_list_text = []
+            for i, booking in enumerate(sorted_bookings, 1):
+                booking_list_text.append(
+                    f"Walk #{i} - Booking #{booking.id}\n"
+                    f"  📅 {booking.booking_date.strftime('%A, %B %d, %Y')}\n"
+                    f"  ⏰ {booking.get_time_slot_display()}\n"
+                    f"  🐕 {dogs_text}\n"
+                )
+            
+            booking_details = '\n'.join(booking_list_text)
+            
+            # Create context for email template
+            context = {
+                'bookings': sorted_bookings,
+                'first_booking': first_booking,
+                'total_bookings': total_bookings,
+                'dog_names': dog_names,
+                'dogs_text': dogs_text,
+                'business_name': 'Canine Compadre',
+                'business_email': settings.BUSINESS_EMAIL,
+                'business_phone': getattr(settings, 'BUSINESS_PHONE', ''),
+                'booking_details': booking_details,
+            }
+            
+            # Try to render HTML template, fallback to plain text
+            try:
+                html_content = render_to_string('emails/multi_booking_confirmation.html', context)
+                text_content = strip_tags(html_content)
+            except:
+                # Fallback to plain text email
+                html_content = None
+                text_content = EmailService._create_multi_booking_text_email(sorted_bookings, dog_names)
+            
+            # Send email
+            if html_content:
+                # Send HTML email
+                msg = EmailMultiAlternatives(
+                    subject=subject,
+                    body=text_content,
+                    from_email=settings.BUSINESS_EMAIL,
+                    to=[first_booking.customer_email],
+                    reply_to=[settings.BUSINESS_EMAIL]
+                )
+                msg.attach_alternative(html_content, "text/html")
+                msg.send()
+            else:
+                # Send plain text email
+                send_mail(
+                    subject=subject,
+                    message=text_content,
+                    from_email=settings.BUSINESS_EMAIL,
+                    recipient_list=[first_booking.customer_email],
+                    fail_silently=False
+                )
+            
+            logger.info(f"Multi-booking confirmation email sent to {first_booking.customer_email} for {total_bookings} bookings")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error sending multi-booking confirmation email: {str(e)}")
+            return False
+
+    @staticmethod
+    def send_admin_multi_booking_notification(bookings):
+        """Send admin notification for multiple bookings"""
+        if not bookings:
+            return False
+            
+        first_booking = bookings[0]
+        total_bookings = len(bookings)
+        
+        try:
+            admin_email = getattr(settings, 'ADMIN_EMAIL', settings.BUSINESS_EMAIL)
+            
+            # Sort bookings by date and time
+            sorted_bookings = sorted(bookings, key=lambda b: (b.booking_date, b.time_slot))
+            
+            # Get dog names (same across all bookings)
+            dog_names = [dog.name for dog in first_booking.dogs.all()]
+            dogs_text = ', '.join(dog_names)
+            
+            subject = f"NEW: {total_bookings} Group Walk Bookings - {first_booking.customer_name}"
+            
+            # Create booking summary for admin
+            booking_summary = ""
+            for i, booking in enumerate(sorted_bookings, 1):
+                booking_summary += f"""
+    Walk #{i} - Booking ID #{booking.id}
+    📅 Date: {booking.booking_date.strftime('%A, %B %d, %Y')}
+    ⏰ Time: {booking.get_time_slot_display()}
+    🐕 Dogs: {dogs_text} ({booking.number_of_dogs} dogs)
+    📅 Calendar Event: {'✅ Created' if booking.calendar_event_id else '❌ Failed'}
+    🆔 Batch ID: {booking.batch_id}
+    """
+            
+            # Get all dogs for the first booking (since they're the same across all bookings)
+            all_dogs = first_booking.dogs.all()
+            dog_details = ""
+            for dog in all_dogs:
+                dog_details += f"""
+    🐕 {dog.name} ({dog.breed}, {dog.age_display})
+    Good with other dogs: {'Yes' if dog.good_with_other_dogs else 'No'}
+    Allergies: {dog.allergies or 'None'}
+    Special instructions: {dog.special_instructions or 'None'}
+    Behavioral notes: {dog.behavioral_notes or 'None'}
+    Vet: {dog.vet_name} - {dog.vet_phone}
+    """
+            
+            message = f"""
+    🐕 NEW MULTI-BOOKING ALERT 🐕
+
+    Customer: {first_booking.customer_name}
+    Email: {first_booking.customer_email}
+    Phone: {first_booking.customer_phone}
+    Address: {first_booking.customer_address}, {first_booking.customer_postcode}
+
+    TOTAL BOOKINGS: {total_bookings}
+
+    📅 BOOKING DETAILS:
+    {booking_summary}
+
+    🐾 DOG INFORMATION:
+    {dog_details}
+
+    💳 BATCH ID: {first_booking.batch_id}
+
+    📅 Calendar Events: {sum(1 for b in bookings if b.calendar_event_id)}/{total_bookings} created successfully
+
+    View in admin: {settings.SITE_URL}/admin/
+
+    ---
+    Canine Compadre Multi-Booking System
+            """.strip()
+            
+            # Send plain text email to admin
+            send_mail(
+                subject=subject,
+                message=message,
+                from_email=settings.BUSINESS_EMAIL,
+                recipient_list=[admin_email],
+                fail_silently=False
+            )
+            
+            logger.info(f"Admin multi-booking notification sent for {total_bookings} bookings")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error sending admin multi-booking notification: {str(e)}")
+            return False
+
+    # ADD this helper method as well:
+
+    @staticmethod
+    def _create_multi_booking_text_email(bookings, dog_names):
+        """Create plain text confirmation email for multiple bookings"""
+        first_booking = bookings[0]
+        total_bookings = len(bookings)
+        dogs_text = ', '.join(dog_names)
+        
+        # Create booking list
+        booking_list = []
+        for i, booking in enumerate(bookings, 1):
+            booking_list.append(
+                f"Walk #{i} - Booking #{booking.id}\n"
+                f"  📅 {booking.booking_date.strftime('%A, %B %d, %Y')}\n"
+                f"  ⏰ {booking.get_time_slot_display()}\n"
+                f"  🐕 {dogs_text}"
+            )
+        
+        booking_details = '\n\n'.join(booking_list)
+        
+        return f"""
+    Hello {first_booking.customer_name},
+
+    Fantastic news! Your {total_bookings} group walk bookings have been confirmed.
+
+    YOUR CONFIRMED BOOKINGS:
+
+    {booking_details}
+
+    CUSTOMER DETAILS:
+    📧 Email: {first_booking.customer_email}
+    📞 Phone: {first_booking.customer_phone}
+    📍 Pickup Address: {first_booking.customer_address}, {first_booking.customer_postcode}
+    🐕 Dogs: {dogs_text} ({first_booking.number_of_dogs} dog{'s' if first_booking.number_of_dogs > 1 else ''})
+
+    WHAT TO EXPECT:
+    • Alex will arrive at your address at each scheduled time
+    • Your dog{'s' if first_booking.number_of_dogs > 1 else ''} will enjoy fun group walks with other friendly dogs
+    • Each walk typically lasts about 1-2 hours
+    • We'll send updates if there are any changes to the schedule
+
+    IMPORTANT REMINDERS:
+    • Please ensure your dog{'s' if first_booking.number_of_dogs > 1 else ''} {'are' if first_booking.number_of_dogs > 1 else 'is'} ready for pickup at each scheduled time
+    • Have water available after each walk
+    • Let us know immediately if there are any changes to your plans for any of the walks
+
+    If you have any questions or need to make changes to any of your bookings, please contact us at {settings.BUSINESS_EMAIL}
+
+    Thank you for choosing Canine Compadre for multiple walks!
+
+    Best regards,
+    Alex
+    Canine Compadre
+    {settings.BUSINESS_EMAIL}
+        """.strip()

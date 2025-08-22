@@ -39,14 +39,73 @@ def home(request):
 
 @require_http_methods(["POST"])
 def group_walk_booking(request):
-    """Handle group walk bookings via AJAX - return JSON response with full integration"""
+    """Handle group walk bookings via AJAX - supports multiple slot selection"""
+    import uuid
+    import json
     
-    # Parse form data
-    form = GroupWalkForm(request.POST)
+    # Check if this is a multi-booking
+    selected_slots_json = request.POST.get('selected_slots')
+    is_multi_booking = request.POST.get('is_multi_booking') == 'true'
     
-    # Handle dog formset data manually since we're using AJAX
+    # Parse selected slots
+    selected_slots = []
+    if selected_slots_json:
+        try:
+            selected_slots = json.loads(selected_slots_json)
+        except json.JSONDecodeError:
+            return JsonResponse({
+                'success': False,
+                'message': 'Invalid slot selection data',
+                'errors': {'general': ['Invalid slot data']}
+            })
+    
+    # If no slots or traditional single booking, fall back to original behavior
+    if not selected_slots:
+        # Extract from traditional form fields
+        booking_date = request.POST.get('booking_date')
+        time_slot = request.POST.get('time_slot')
+        if booking_date and time_slot:
+            selected_slots = [{
+                'date': booking_date,
+                'timeSlot': time_slot,
+                'timeDisplay': dict(GroupWalk.TIME_SLOT_CHOICES).get(time_slot, time_slot),
+                'dateDisplay': booking_date
+            }]
+    
+    if not selected_slots:
+        return JsonResponse({
+            'success': False,
+            'message': 'No time slots selected',
+            'errors': {'general': ['Please select at least one time slot']}
+        })
+    
+    # Validate basic form data
+    customer_data = {
+        'customer_name': request.POST.get('customer_name', ''),
+        'customer_email': request.POST.get('customer_email', ''),
+        'customer_phone': request.POST.get('customer_phone', ''),
+        'customer_address': request.POST.get('customer_address', ''),
+        'customer_postcode': request.POST.get('customer_postcode', ''),
+        'number_of_dogs': request.POST.get('number_of_dogs', ''),
+    }
+    
+    # Basic validation
+    required_fields = ['customer_name', 'customer_email', 'customer_phone', 'customer_address', 'customer_postcode', 'number_of_dogs']
+    errors = {}
+    for field in required_fields:
+        if not customer_data[field]:
+            errors[field] = [f'{field.replace("_", " ").title()} is required']
+    
+    if errors:
+        return JsonResponse({
+            'success': False,
+            'message': 'Please fill in all required fields',
+            'errors': errors
+        })
+    
+    # Handle dog formset data
+    num_dogs = int(customer_data['number_of_dogs'])
     dog_data = []
-    num_dogs = int(request.POST.get('number_of_dogs', 0))
     
     for i in range(num_dogs):
         dog_info = {
@@ -63,21 +122,51 @@ def group_walk_booking(request):
         }
         dog_data.append(dog_info)
     
-    # Validate form
-    if form.is_valid() and len(dog_data) == num_dogs:
-        try:
-            with transaction.atomic():
-                # Create the group walk booking
-                booking = form.save()
+    # Validate dog data
+    for i, dog_info in enumerate(dog_data):
+        required_dog_fields = ['name', 'breed', 'age', 'vet_name', 'vet_phone', 'vet_address']
+        for field in required_dog_fields:
+            if not dog_info[field]:
+                errors[f'dog_{i}_{field}'] = [f'Dog {i+1} {field.replace("_", " ")} is required']
+    
+    if errors:
+        return JsonResponse({
+            'success': False,
+            'message': 'Please complete all dog information',
+            'errors': errors
+        })
+    
+    try:
+        with transaction.atomic():
+            created_bookings = []
+            batch_id = str(uuid.uuid4()) if is_multi_booking else None
+            
+            # Create a booking for each selected slot
+            for slot_data in selected_slots:
+                # Create form data for this specific slot
+                form_data = customer_data.copy()
+                form_data.update({
+                    'booking_date': slot_data['date'],
+                    'time_slot': slot_data['timeSlot'],
+                })
                 
-                # Create dog records
+                # Validate this specific slot
+                form = GroupWalkForm(form_data)
+                if not form.is_valid():
+                    error_msg = f"Slot {slot_data['dateDisplay']} at {slot_data['timeDisplay']}: " + \
+                               ", ".join([f"{field}: {', '.join(errors)}" for field, errors in form.errors.items()])
+                    raise ValidationError(error_msg)
+                
+                # Create the booking
+                booking = form.save(commit=False)
+                if batch_id:
+                    booking.batch_id = batch_id
+                booking.save()
+                
+                # Create dog records for this booking
                 created_dogs = []
                 for dog_info in dog_data:
-                    if dog_info['name']:  # Only create if name is provided
-                        # Validate required vet fields
-                        if not dog_info['vet_name'] or not dog_info['vet_phone'] or not dog_info['vet_address']:
-                            raise ValueError("All veterinary information fields are required")
-                        
+                    if dog_info['name']:
                         dog = Dog.objects.create(
                             group_walk=booking,
                             name=dog_info['name'],
@@ -93,11 +182,11 @@ def group_walk_booking(request):
                         )
                         created_dogs.append(dog)
                 
-                # Verify we have the right number of dogs
+                # Verify correct number of dogs
                 if len(created_dogs) != booking.number_of_dogs:
                     raise ValueError(f"Expected {booking.number_of_dogs} dogs, but only {len(created_dogs)} were created")
-
-                # Create calendar event now that dogs exist
+                
+                # Create individual calendar event for this booking
                 if not booking.calendar_event_id:
                     try:
                         from .calendar_service import GoogleCalendarService
@@ -106,128 +195,84 @@ def group_walk_booking(request):
                         if event_id:
                             booking.calendar_event_id = event_id
                             booking.save(update_fields=['calendar_event_id'])
-                            logger.info(f"Calendar event created for group walk booking {booking.id}: {event_id}")
+                            logger.info(f"Calendar event created for booking {booking.id}: {event_id}")
                     except Exception as e:
                         logger.error(f"Error creating calendar event for booking {booking.id}: {str(e)}")
                 
-                # Send confirmation email to customer
-                customer_email_sent = False
-                if INTEGRATIONS_AVAILABLE:
-                    try:
-                        customer_email_sent = EmailService.send_group_walk_confirmation(booking)
-                        if customer_email_sent:
-                            logger.info(f"Confirmation email sent for group walk booking {booking.id}")
-                        else:
-                            logger.warning(f"Failed to send confirmation email for booking {booking.id}")
-                    except Exception as e:
-                        logger.error(f"Error sending confirmation email for booking {booking.id}: {str(e)}")
-                
-                # Send admin notification
-                admin_email_sent = False
-                if INTEGRATIONS_AVAILABLE:
-                    try:
-                        admin_email_sent = EmailService.send_admin_notification(booking, 'group_walk')
-                        if admin_email_sent:
-                            logger.info(f"Admin notification sent for group walk booking {booking.id}")
-                    except Exception as e:
-                        logger.error(f"Error sending admin notification for booking {booking.id}: {str(e)}")
-                
-                # Success response with confirmation HTML
-                dog_names = [dog.name for dog in created_dogs]
-                
-                # Create status indicators
-                calendar_status = "✅ Added to calendar" if booking.calendar_event_id else "⚠️ Calendar sync pending"
-                email_status = f"📧 Confirmation sent to {booking.customer_email}" if customer_email_sent else "⚠️ Email confirmation pending"
-                
-                success_html = f"""
-                <div class="booking-success text-center">
-                    <div class="alert alert-success">
-                        <h4><i class="bi bi-check-circle-fill me-2"></i>Group Walk Booking Confirmed!</h4>
-                        <hr>
-                        <div class="booking-details">
-                            <p><strong>Booking ID:</strong> #{booking.id}</p>
-                            <p><strong>Date & Time:</strong> {booking.booking_date.strftime('%A, %B %d, %Y')} at {booking.get_time_slot_display()}</p>
-                            <p><strong>Customer:</strong> {booking.customer_name}</p>
-                            <p><strong>Email:</strong> {booking.customer_email}</p>
-                            <p><strong>Phone:</strong> {booking.customer_phone}</p>
-                            <p><strong>Address:</strong> {booking.customer_address}, {booking.customer_postcode}</p>
-                            <p><strong>Dogs:</strong> {', '.join(dog_names)} ({len(dog_names)} dog{'s' if len(dog_names) != 1 else ''})</p>
-                        </div>
-                        <hr>
-                        <div class="status-updates">
-                            <p class="mb-1">{calendar_status}</p>
-                            <p class="mb-2">{email_status}</p>
-                        </div>
-                        <div class="next-steps">
-                            <h6>What happens next?</h6>
-                            <ul class="text-start">
-                                <li>Alex will arrive at your address at the scheduled time</li>
-                                <li>Your dog{'s' if len(dog_names) > 1 else ''} will enjoy a group walk with other friendly dogs</li>
-                                <li>You'll receive updates if there are any changes to the schedule</li>
-                            </ul>
-                        </div>
-                        <button class="btn btn-primary mt-3" onclick="resetBookingSection()">Book Another Walk</button>
-                    </div>
-                </div>
-                """
-                
-                return JsonResponse({
-                    'success': True,
-                    'message': 'Group walk booking confirmed successfully!',
-                    'html': success_html,
-                    'booking_id': booking.id,
-                    'calendar_created': bool(booking.calendar_event_id),
-                    'email_sent': customer_email_sent,
-                })
-                
-        except ValidationError as e:
-            logger.error(f"Validation error in group walk booking: {str(e)}")
+                created_bookings.append(booking)
+            
+            # Send single email for all bookings
+            customer_email_sent = False
+            if INTEGRATIONS_AVAILABLE:
+                try:
+                    if is_multi_booking and len(created_bookings) > 1:
+                        # Send multi-booking confirmation email
+                        customer_email_sent = EmailService.send_multi_booking_confirmation(created_bookings)
+                    else:
+                        # Send single booking confirmation
+                        customer_email_sent = EmailService.send_group_walk_confirmation(created_bookings[0])
+                    
+                    if customer_email_sent:
+                        logger.info(f"Confirmation email sent for {len(created_bookings)} booking(s)")
+                    else:
+                        logger.warning(f"Failed to send confirmation email for {len(created_bookings)} booking(s)")
+                except Exception as e:
+                    logger.error(f"Error sending confirmation email: {str(e)}")
+            
+            # Send admin notification
+            admin_email_sent = False
+            if INTEGRATIONS_AVAILABLE:
+                try:
+                    if is_multi_booking and len(created_bookings) > 1:
+                        admin_email_sent = EmailService.send_admin_multi_booking_notification(created_bookings)
+                    else:
+                        admin_email_sent = EmailService.send_admin_notification(created_bookings[0], 'group_walk')
+                    
+                    if admin_email_sent:
+                        logger.info(f"Admin notification sent for {len(created_bookings)} booking(s)")
+                except Exception as e:
+                    logger.error(f"Error sending admin notification: {str(e)}")
+            
+            # Generate success response
+            if is_multi_booking and len(created_bookings) > 1:
+                success_html = generate_multi_booking_success_html(created_bookings, customer_email_sent)
+                message = f'{len(created_bookings)} group walk bookings confirmed successfully!'
+            else:
+                booking = created_bookings[0]
+                dog_names = [dog.name for dog in booking.dogs.all()]
+                success_html = generate_single_booking_success_html(booking, dog_names, customer_email_sent)
+                message = 'Group walk booking confirmed successfully!'
+            
             return JsonResponse({
-                'success': False,
-                'message': str(e),
-                'errors': {'general': [str(e)]}
+                'success': True,
+                'message': message,
+                'html': success_html,
+                'booking_ids': [booking.id for booking in created_bookings],
+                'total_bookings': len(created_bookings),
+                'calendar_events_created': sum(1 for booking in created_bookings if booking.calendar_event_id),
+                'email_sent': customer_email_sent,
             })
-        except ValueError as e:
-            logger.error(f"Value error in group walk booking: {str(e)}")
-            return JsonResponse({
-                'success': False,
-                'message': str(e),
-                'errors': {'general': [str(e)]}
-            })
-        except Exception as e:
-            logger.error(f"Unexpected error in group walk booking: {str(e)}")
-            return JsonResponse({
-                'success': False,
-                'message': 'An error occurred while processing your booking. Please try again or contact us directly.',
-                'errors': {'general': ['An unexpected error occurred']}
-            })
-    
-    else:
-        # Form validation errors
-        errors = {}
-        if not form.is_valid():
-            errors.update(form.errors)
-            logger.warning(f"Group walk form validation errors: {form.errors}")
-        
-        # Validate dog data
-        for i, dog_info in enumerate(dog_data):
-            if not dog_info['name']:
-                errors[f'dog_{i}_name'] = ['Dog name is required']
-            if not dog_info['breed']:
-                errors[f'dog_{i}_breed'] = ['Dog breed is required']
-            if not dog_info['age']:
-                errors[f'dog_{i}_age'] = ['Dog age is required']
-            if not dog_info['vet_name']:
-                errors[f'dog_{i}_vet_name'] = ['Veterinary practice name is required']
-            if not dog_info['vet_phone']:
-                errors[f'dog_{i}_vet_phone'] = ['Veterinary practice phone is required']
-            if not dog_info['vet_address']:
-                errors[f'dog_{i}_vet_address'] = ['Veterinary practice address is required']
-        
+            
+    except ValidationError as e:
+        logger.error(f"Validation error in group walk booking: {str(e)}")
         return JsonResponse({
             'success': False,
-            'message': 'Please correct the errors below',
-            'errors': errors
+            'message': str(e),
+            'errors': {'general': [str(e)]}
+        })
+    except ValueError as e:
+        logger.error(f"Value error in group walk booking: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'message': str(e),
+            'errors': {'general': [str(e)]}
+        })
+    except Exception as e:
+        logger.error(f"Unexpected error in group walk booking: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'message': 'An error occurred while processing your booking. Please try again or contact us directly.',
+            'errors': {'general': ['An unexpected error occurred']}
         })
 
 @require_http_methods(["POST"])
@@ -1001,3 +1046,100 @@ def get_unavailable_dates(request):
             'success': False,
             'error': 'Error loading unavailable dates'
         })
+
+def generate_multi_booking_success_html(bookings, email_sent):
+    """Generate success HTML for multiple bookings"""
+    first_booking = bookings[0]
+    total_bookings = len(bookings)
+    
+    # Create booking details list
+    booking_details = []
+    for booking in sorted(bookings, key=lambda b: (b.booking_date, b.time_slot)):
+        dog_names = [dog.name for dog in booking.dogs.all()]
+        booking_details.append({
+            'id': booking.id,
+            'date': booking.booking_date.strftime('%A, %B %d, %Y'),
+            'time': booking.get_time_slot_display(),
+            'dogs': ', '.join(dog_names)
+        })
+    
+    booking_list_html = ''.join([
+        f'<li><strong>Booking #{detail["id"]}:</strong> {detail["date"]} at {detail["time"]} - {detail["dogs"]}</li>'
+        for detail in booking_details
+    ])
+    
+    calendar_status = f"✅ {sum(1 for b in bookings if b.calendar_event_id)} calendar events created"
+    email_status = f"📧 Confirmation sent to {first_booking.customer_email}" if email_sent else "⚠️ Email confirmation pending"
+    
+    return f"""
+    <div class="booking-success text-center">
+        <div class="alert alert-success">
+            <h4><i class="bi bi-check-circle-fill me-2"></i>Multiple Group Walk Bookings Confirmed!</h4>
+            <hr>
+            <div class="booking-details">
+                <p><strong>Customer:</strong> {first_booking.customer_name}</p>
+                <p><strong>Email:</strong> {first_booking.customer_email}</p>
+                <p><strong>Phone:</strong> {first_booking.customer_phone}</p>
+                <p><strong>Address:</strong> {first_booking.customer_address}, {first_booking.customer_postcode}</p>
+                <p><strong>Total Walks Booked:</strong> {total_bookings}</p>
+                
+                <h6 class="mt-3">Your Bookings:</h6>
+                <ul class="text-start" style="max-width: 600px; margin: 0 auto;">
+                    {booking_list_html}
+                </ul>
+            </div>
+            <hr>
+            <div class="status-updates">
+                <p class="mb-1">{calendar_status}</p>
+                <p class="mb-2">{email_status}</p>
+            </div>
+            <div class="next-steps">
+                <h6>What happens next?</h6>
+                <ul class="text-start">
+                    <li>Alex will arrive at your address at each scheduled time</li>
+                    <li>Your dog(s) will enjoy group walks with other friendly dogs</li>
+                    <li>You'll receive updates if there are any changes to the schedule</li>
+                </ul>
+            </div>
+            <button class="btn btn-primary mt-3" onclick="resetBookingSection()">Book More Walks</button>
+        </div>
+    </div>
+    """
+
+
+def generate_single_booking_success_html(booking, dog_names, email_sent):
+    """Generate success HTML for single booking (existing functionality)"""
+    calendar_status = "✅ Added to calendar" if booking.calendar_event_id else "⚠️ Calendar sync pending"
+    email_status = f"📧 Confirmation sent to {booking.customer_email}" if email_sent else "⚠️ Email confirmation pending"
+    
+    return f"""
+    <div class="booking-success text-center">
+        <div class="alert alert-success">
+            <h4><i class="bi bi-check-circle-fill me-2"></i>Group Walk Booking Confirmed!</h4>
+            <hr>
+            <div class="booking-details">
+                <p><strong>Booking ID:</strong> #{booking.id}</p>
+                <p><strong>Date & Time:</strong> {booking.booking_date.strftime('%A, %B %d, %Y')} at {booking.get_time_slot_display()}</p>
+                <p><strong>Customer:</strong> {booking.customer_name}</p>
+                <p><strong>Email:</strong> {booking.customer_email}</p>
+                <p><strong>Phone:</strong> {booking.customer_phone}</p>
+                <p><strong>Address:</strong> {booking.customer_address}, {booking.customer_postcode}</p>
+                <p><strong>Dogs:</strong> {', '.join(dog_names)} ({len(dog_names)} dog{'s' if len(dog_names) != 1 else ''})</p>
+            </div>
+            <hr>
+            <div class="status-updates">
+                <p class="mb-1">{calendar_status}</p>
+                <p class="mb-2">{email_status}</p>
+            </div>
+            <div class="next-steps">
+                <h6>What happens next?</h6>
+                <ul class="text-start">
+                    <li>Alex will arrive at your address at the scheduled time</li>
+                    <li>Your dog{'s' if len(dog_names) > 1 else ''} will enjoy a group walk with other friendly dogs</li>
+                    <li>You'll receive updates if there are any changes to the schedule</li>
+                </ul>
+            </div>
+            <button class="btn btn-primary mt-3" onclick="resetBookingSection()">Book Another Walk</button>
+        </div>
+    </div>
+    """

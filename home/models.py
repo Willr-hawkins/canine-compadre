@@ -73,6 +73,14 @@ class GroupWalk(BaseBooking):
     # Google Calendar Event ID (for integration)
     calendar_event_id = models.CharField(max_length=255, blank=True, null=True)
 
+    # Simple batch ID to group multiple bookings
+    batch_id = models.CharField(
+        max_length=50,
+        blank=True,
+        null=True,
+        help_text="Groups multiple bookings made together" 
+    )
+
     class Meta:
         ordering = ['-booking_date', 'time_slot']
         verbose_name = "Group Walk Booking"
@@ -227,6 +235,23 @@ class GroupWalk(BaseBooking):
                     })
                 
         return available_slots
+
+    @classmethod
+    def get_batch_bookings(cls, batch_id):
+        """ Get all bookings in the same batch """
+        return cls.objects.filter(batch_id=batch_id).order_by('booking_date', 'time_slot')
+    
+    @property
+    def is_part_of_batch(self):
+        """ Check if the booking is part of multi-booking """
+        return bool(self.batch_id)
+    
+    @property
+    def batch_sixe(self):
+        """ Get total number of bookings in this batch """
+        if not self.batch_id:
+            return 1
+        return GroupWalk.objects.filter(batch_id=self.batch_id).count()
     
     @property
     def total_dogs_in_slot(self):

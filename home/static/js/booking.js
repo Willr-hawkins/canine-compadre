@@ -1,25 +1,53 @@
-// booking.js - Complete Booking System JavaScript with Calendar Integration
+// booking.js - Complete Booking System JavaScript with Multi-Booking Support
+
+// GLOBAL UTILITY FUNCTIONS (AVAILABLE EVERYWHERE)
+function getCSRFToken() {
+    const cookieCSRF = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (cookieCSRF) return cookieCSRF.value;
+    
+    const metaCSRF = document.querySelector('meta[name="csrf-token"]');
+    if (metaCSRF) return metaCSRF.getAttribute('content');
+    
+    const cookies = document.cookie.split(';');
+    for (let cookie of cookies) {
+        const [name, value] = cookie.trim().split('=');
+        if (name === 'csrftoken') {
+            return value;
+        }
+    }
+    return '';
+}
+
+function validateEmail(email) {
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return re.test(email);
+}
+
+function validatePhone(phone) {
+    const re = /^[\d\s\-\+\(\)]+$/;
+    return re.test(phone) && phone.replace(/\D/g, '').length >= 10;
+}
+
+function validatePostcode(postcode) {
+    const re = /^(EX3[1-4])\s?[0-9][A-Z]{2}$/i;
+    return re.test(postcode);
+}
+
+// GLOBAL VARIABLES (AVAILABLE EVERYWHERE)
+let availabilityData = [];
+let selectedSlots = [];
+let currentBookingType = null;
+let isMultiBookingMode = false;
+
 document.addEventListener('DOMContentLoaded', function() {
     
-    // Global variables
-    let availabilityData = [];
-    let selectedDate = null;
-    let selectedTimeSlot = null;
-    let currentBookingType = null;
-    
     // Main booking elements
-    const serviceSelection = document.getElementById('booking-service-selection');
-    const backToSelection = document.getElementById('back-to-selection');
-    const backBtn = document.getElementById('back-btn');
-    const groupForm = document.getElementById('group-booking-form');
-    const individualForm = document.getElementById('individual-booking-form');
     const bookingMainContent = document.getElementById('booking-main-content');
     
     // ===========================================
     // SERVICE SELECTION HANDLERS
     // ===========================================
     
-    // Handle service type selection
     document.querySelectorAll('.booking-type-btn').forEach(btn => {
         btn.addEventListener('click', function() {
             currentBookingType = this.dataset.bookingType;
@@ -27,19 +55,15 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
-    // Back button handler
-    if (backBtn) {
-        backBtn.addEventListener('click', function() {
-            goBackToServiceSelection();
-        });
-    }
-    
     function showBookingForm(type) {
-        // Hide service selection
+        const serviceSelection = document.getElementById('booking-service-selection');
+        const backToSelection = document.getElementById('back-to-selection');
+        const groupForm = document.getElementById('group-booking-form');
+        const individualForm = document.getElementById('individual-booking-form');
+        
         if (serviceSelection) serviceSelection.style.display = 'none';
         if (backToSelection) backToSelection.style.display = 'block';
         
-        // Show appropriate form
         if (type === 'group') {
             if (groupForm) groupForm.style.display = 'block';
             if (individualForm) individualForm.style.display = 'none';
@@ -52,12 +76,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function resetBookingSection() {
-        console.log('resetBookingSection called');
-        
-        // First, restore the original booking content by replacing the success message
         if (bookingMainContent) {
             bookingMainContent.innerHTML = `
-                <!-- Service Selection Buttons (Initial State) -->
                 <div id="booking-service-selection" class="text-center">
                     <div class="row justify-content-center">
                         <div class="col-12 col-md-5 mb-3">
@@ -80,15 +100,11 @@ document.addEventListener('DOMContentLoaded', function() {
                         </div>
                     </div>
                 </div>
-
-                <!-- Back Button (Hidden Initially) -->
                 <div id="back-to-selection" class="text-center mb-3" style="display: none;">
                     <button class="btn btn-secondary" onclick="goBackToServiceSelection()">
                         <i class="bi bi-arrow-left"></i> Back to Service Selection
                     </button>
                 </div>
-
-                <!-- Group Walk Booking Form -->
                 <div id="group-booking-form" class="booking-form-section" style="display: none;">
                     <div class="card">
                         <div class="card-header bg-primary text-white text-center">
@@ -97,7 +113,6 @@ document.addEventListener('DOMContentLoaded', function() {
                         </div>
                         <div class="card-body">
                             <form id="group-walk-form">
-                                <!-- Form content will be loaded here -->
                                 <div id="group-form-loading" class="text-center p-4">
                                     <div class="spinner-border text-primary" role="status">
                                         <span class="visually-hidden">Loading form...</span>
@@ -107,8 +122,6 @@ document.addEventListener('DOMContentLoaded', function() {
                         </div>
                     </div>
                 </div>
-
-                <!-- Individual Walk Request Form -->
                 <div id="individual-booking-form" class="booking-form-section" style="display: none;">
                     <div class="card">
                         <div class="card-header bg-success text-white text-center">
@@ -117,7 +130,6 @@ document.addEventListener('DOMContentLoaded', function() {
                         </div>
                         <div class="card-body">
                             <form id="individual-walk-form">
-                                <!-- Form content will be loaded here -->
                                 <div id="individual-form-loading" class="text-center p-4">
                                     <div class="spinner-border text-success" role="status">
                                         <span class="visually-hidden">Loading form...</span>
@@ -128,43 +140,25 @@ document.addEventListener('DOMContentLoaded', function() {
                     </div>
                 </div>
             `;
-            
-            // Re-initialize event handlers after restoring content
             initializeBookingHandlers();
         }
         
-        // Reset variables
-        selectedDate = null;
-        selectedTimeSlot = null;
+        selectedSlots = [];
         currentBookingType = null;
         availabilityData = [];
-        
-        console.log('Booking section reset successfully');
+        isMultiBookingMode = false;
     }
     
-    // New function to initialize booking handlers
     function initializeBookingHandlers() {
-        // Re-attach service type selection handlers
         document.querySelectorAll('.booking-type-btn').forEach(btn => {
             btn.addEventListener('click', function() {
                 currentBookingType = this.dataset.bookingType;
                 showBookingForm(currentBookingType);
             });
         });
-        
-        // Re-attach back button handler
-        const backBtn = document.querySelector('[onclick="goBackToServiceSelection()"]');
-        if (backBtn) {
-            backBtn.addEventListener('click', function(e) {
-                e.preventDefault();
-                goBackToServiceSelection();
-            });
-        }
     }
     
-    // Global function for success confirmation buttons - make sure it's properly exposed
     window.resetBookingSection = function() {
-        console.log('Global resetBookingSection called');
         resetBookingSection();
     };
     
@@ -173,33 +167,24 @@ document.addEventListener('DOMContentLoaded', function() {
     // ===========================================
     
     async function initializeGroupWalkForm() {
-        // Load the group walk form content
         await loadGroupWalkFormContent();
         
         const numDogsSelector = document.getElementById('num-dogs-selector');
-        
         if (numDogsSelector) {
-            // Remove any existing event listeners
             numDogsSelector.removeEventListener('change', handleNumDogsChange);
-            // Add event listener
             numDogsSelector.addEventListener('change', handleNumDogsChange);
         }
         
         const groupWalkForm = document.getElementById('group-walk-form');
         if (groupWalkForm) {
-            // Remove any existing event listeners
             groupWalkForm.removeEventListener('submit', handleGroupFormSubmit);
-            // Add event listener
             groupWalkForm.addEventListener('submit', handleGroupFormSubmit);
         }
         
-        // Add real-time validation
         addRealTimeValidation();
     }
     
-    
-    async function loadGroupWalkFormContent() {
-        // Always use the basic form since template is disabled
+    function loadGroupWalkFormContent() {
         loadBasicGroupForm();
     }
     
@@ -208,7 +193,6 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!groupForm) return;
         
         groupForm.innerHTML = `
-            <!-- Step 1: Number of Dogs -->
             <div class="booking-step" id="step-1-dogs">
                 <h5 class="text-center mb-3">Step 1: How many dogs?</h5>
                 <div class="row justify-content-center">
@@ -224,9 +208,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
             </div>
 
-            <!-- Step 2: Calendar Selection -->
             <div class="booking-step" id="step-2-calendar" style="display: none;">
                 <h5 class="text-center mb-3">Step 2: Choose Date & Time</h5>
+                
+                <div class="multi-booking-toggle text-center mb-3" id="multi-booking-toggle" style="display: none;"></div>
+                
                 <div id="availability-calendar" class="availability-calendar mb-4">
                     <div class="loading text-center p-4">
                         <div class="spinner-border text-primary" role="status">
@@ -236,13 +222,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     </div>
                 </div>
 
-                <!-- Selected Slot Info -->
                 <div id="selection-summary" class="alert alert-info text-center" style="display: none;">
                     <strong>Selected:</strong> <span id="selected-info"></span>
                 </div>
             </div>
 
-            <!-- Step 3: Your Details -->
             <div class="booking-step" id="step-3-details" style="display: none;">
                 <h5 class="text-center mb-3">Step 3: Your Details</h5>
                 <div class="row">
@@ -273,24 +257,19 @@ document.addEventListener('DOMContentLoaded', function() {
                     </div>
                 </div>
 
-                <!-- Hidden fields for selected date/time -->
                 <input type="hidden" name="booking_date" id="booking-date">
                 <input type="hidden" name="time_slot" id="time-slot">
                 <input type="hidden" name="csrfmiddlewaretoken" value="${getCSRFToken()}">
             </div>
 
-            <!-- Step 4: Dog Details -->
             <div class="booking-step" id="step-4-dogs" style="display: none;">
                 <h5 class="text-center mb-3">Step 4: Dog Details</h5>
-                <div id="dog-forms-container">
-                    <!-- Dog forms will be added here dynamically -->
-                </div>
+                <div id="dog-forms-container"></div>
             </div>
 
-            <!-- Submit Section -->
             <div class="booking-step text-center" id="step-5-submit" style="display: none;">
                 <button type="submit" class="btn btn-success btn-lg">
-                    <i class="bi bi-check-circle"></i> Confirm Group Walk Booking
+                    <i class="bi bi-check-circle"></i> <span id="submit-btn-text">Confirm Group Walk Booking</span>
                 </button>
             </div>
         `;
@@ -308,42 +287,24 @@ document.addEventListener('DOMContentLoaded', function() {
     function handleGroupFormSubmit(e) {
         e.preventDefault();
         
-        // Show loading state
+        if (selectedSlots.length === 0) {
+            showGenericError('group-walk-form', 'Please select at least one time slot.');
+            return;
+        }
+        
         const submitBtn = e.target.querySelector('button[type="submit"]');
         const originalText = submitBtn.innerHTML;
-        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Processing...';
+        const loadingText = isMultiBookingMode && selectedSlots.length > 1 
+            ? `<span class="spinner-border spinner-border-sm me-2"></span>Processing ${selectedSlots.length} bookings...`
+            : '<span class="spinner-border spinner-border-sm me-2"></span>Processing...';
+        
+        submitBtn.innerHTML = loadingText;
         submitBtn.disabled = true;
         
         submitGroupWalkForm().finally(() => {
-            // Reset button state
             submitBtn.innerHTML = originalText;
             submitBtn.disabled = false;
         });
-    }
-    
-    function resetGroupWalkSteps() {
-        // Hide all steps except first
-        document.querySelectorAll('.booking-step').forEach(step => {
-            step.style.display = 'none';
-        });
-        const step1 = document.getElementById('step-1-dogs');
-        if (step1) step1.style.display = 'block';
-        
-        // Reset selection summary
-        const selectionSummary = document.getElementById('selection-summary');
-        if (selectionSummary) selectionSummary.style.display = 'none';
-        
-        const availabilityCalendar = document.getElementById('availability-calendar');
-        if (availabilityCalendar) {
-            availabilityCalendar.innerHTML = `
-                <div class="loading text-center p-4">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Loading...</span>
-                    </div>
-                    <p class="mt-2">Loading available slots...</p>
-                </div>
-            `;
-        }
     }
     
     function showStep(stepId) {
@@ -413,17 +374,26 @@ document.addEventListener('DOMContentLoaded', function() {
             
             day.slots.forEach(slot => {
                 const cssClass = slot.can_book ? 'available' : 'full';
-                const clickable = slot.can_book ? `onclick="selectSlot('${day.date}', '${slot.time_slot}', '${slot.time_display}', '${day.date_display}')"` : '';
                 const spotsText = slot.available_spots === 1 ? '1 spot' : `${slot.available_spots} spots`;
                 
-                html += `
-                    <div class="time-slot ${cssClass}" ${clickable} data-time-slot="${slot.time_slot}">
-                        <div class="time-display">${slot.time_display}</div>
-                        <div class="spots-info">
-                            ${slot.can_book ? `${spotsText} available` : 'Fully booked'}
+                if (slot.can_book) {
+                    html += `
+                        <div class="time-slot ${cssClass}" 
+                             onclick="window.selectSlot('${day.date}', '${slot.time_slot}', '${slot.time_display}', '${day.date_display}')" 
+                             data-time-slot="${slot.time_slot}"
+                             style="cursor: pointer;">
+                            <div class="time-display">${slot.time_display}</div>
+                            <div class="spots-info">${spotsText} available</div>
                         </div>
-                    </div>
-                `;
+                    `;
+                } else {
+                    html += `
+                        <div class="time-slot ${cssClass}" data-time-slot="${slot.time_slot}">
+                            <div class="time-display">${slot.time_display}</div>
+                            <div class="spots-info">Fully booked</div>
+                        </div>
+                    `;
+                }
             });
             
             html += `
@@ -436,59 +406,186 @@ document.addEventListener('DOMContentLoaded', function() {
         calendar.innerHTML = html;
     }
     
-    // Global function for calendar slot selection
-    window.selectSlot = function(date, timeSlot, timeDisplay, dateDisplay) {
-        // Remove previous selections
+    // UPDATED MULTI-BOOKING TOGGLE FUNCTION
+    function showMultiBookingToggle() {
+        const toggle = document.getElementById('multi-booking-toggle');
+        if (toggle) {
+            toggle.innerHTML = `
+                <div class="alert alert-success">
+                    <div class="form-check form-switch d-inline-block">
+                        <input class="form-check-input" type="checkbox" id="multiBookingToggle">
+                        <label class="form-check-label" for="multiBookingToggle">
+                            <strong>Want to book more walks?</strong> Toggle this to select additional time slots
+                        </label>
+                    </div>
+                    <div class="mt-2">
+                        <small class="text-muted">You can book multiple walks with the same customer and dog details! 
+                        Or click "Continue to Details" below when you're ready to proceed.</small>
+                    </div>
+                </div>
+            `;
+            
+            toggle.style.display = 'block';
+            
+            const checkbox = document.getElementById('multiBookingToggle');
+            if (checkbox && !checkbox.hasAttribute('data-listener-added')) {
+                checkbox.setAttribute('data-listener-added', 'true');
+                checkbox.addEventListener('change', function() {
+                    isMultiBookingMode = this.checked;
+                    if (!isMultiBookingMode) {
+                        if (selectedSlots.length > 1) {
+                            selectedSlots = [selectedSlots[0]];
+                        }
+                        updateSelectionSummary();
+                    }
+                    updateCalendarDisplay();
+                    updateSubmitButtonText();
+                    
+                    // Hide continue button when in multi-booking mode
+                    const continueContainer = document.getElementById('continue-to-details');
+                    if (continueContainer) {
+                        continueContainer.style.display = isMultiBookingMode ? 'none' : 'block';
+                    }
+                });
+            }
+        }
+    }
+    
+    // CONTINUE BUTTON FUNCTION
+    function showContinueButton() {
+        const continueContainer = document.getElementById('continue-to-details');
+        if (!continueContainer) {
+            // Create continue button container if it doesn't exist
+            const calendar = document.getElementById('availability-calendar');
+            if (calendar && calendar.parentNode) {
+                const continueDiv = document.createElement('div');
+                continueDiv.id = 'continue-to-details';
+                continueDiv.className = 'text-center mt-3';
+                continueDiv.innerHTML = `
+                    <button type="button" class="btn btn-success btn-lg" onclick="proceedToNextSteps()">
+                        <i class="bi bi-arrow-right me-2"></i>Continue to Details
+                    </button>
+                `;
+                
+                // Insert after the selection summary
+                const selectionSummary = document.getElementById('selection-summary');
+                if (selectionSummary) {
+                    selectionSummary.parentNode.insertBefore(continueDiv, selectionSummary.nextSibling);
+                } else {
+                    calendar.parentNode.insertBefore(continueDiv, calendar.nextSibling);
+                }
+            }
+        } else {
+            continueContainer.style.display = 'block';
+        }
+    }
+    
+    // FUNCTION TO PROCEED TO NEXT STEPS
+    window.proceedToNextSteps = function() {
+        if (selectedSlots.length > 0) {
+            showStep('step-3-details');
+            showStep('step-4-dogs');
+            showStep('step-5-submit');
+            
+            // Hide the continue button
+            const continueContainer = document.getElementById('continue-to-details');
+            if (continueContainer) {
+                continueContainer.style.display = 'none';
+            }
+            
+            // Scroll to the details step
+            setTimeout(() => {
+                const detailsStep = document.getElementById('step-3-details');
+                if (detailsStep) {
+                    detailsStep.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            }, 100);
+        }
+    };
+    
+    function updateSubmitButtonText() {
+        const submitBtnText = document.getElementById('submit-btn-text');
+        if (submitBtnText) {
+            if (isMultiBookingMode && selectedSlots.length > 1) {
+                submitBtnText.textContent = `Confirm ${selectedSlots.length} Group Walk Bookings`;
+            } else {
+                submitBtnText.textContent = 'Confirm Group Walk Booking';
+            }
+        }
+    }
+    
+    function updateCalendarDisplay() {
         document.querySelectorAll('.day-card.selected, .time-slot.selected').forEach(el => {
             el.classList.remove('selected');
         });
         
-        // Add selection to clicked elements
-        const dayCard = document.querySelector(`[data-date="${date}"]`);
-        if (dayCard) {
-            const timeSlotEl = dayCard.querySelector(`[data-time-slot="${timeSlot}"]`);
-            
-            dayCard.classList.add('selected');
-            if (timeSlotEl) timeSlotEl.classList.add('selected');
-        }
-        
-        // Update selected values
-        selectedDate = date;
-        selectedTimeSlot = timeSlot;
-        
-        // Update form fields
-        const bookingDateField = document.getElementById('booking-date');
-        const timeSlotField = document.getElementById('time-slot');
-        if (bookingDateField) bookingDateField.value = date;
-        if (timeSlotField) timeSlotField.value = timeSlot;
-        
-        // Show selection summary
+        selectedSlots.forEach(slot => {
+            const dayCard = document.querySelector(`[data-date="${slot.date}"]`);
+            if (dayCard) {
+                const timeSlotEl = dayCard.querySelector(`[data-time-slot="${slot.timeSlot}"]`);
+                if (timeSlotEl) {
+                    timeSlotEl.classList.add('selected');
+                    if (!isMultiBookingMode || selectedSlots.length === 1) {
+                        dayCard.classList.add('selected');
+                    }
+                }
+            }
+        });
+    }
+    
+    function updateSelectionSummary() {
         const selectedInfo = document.getElementById('selected-info');
         const selectionSummary = document.getElementById('selection-summary');
-        if (selectedInfo) selectedInfo.textContent = `${dateDisplay} at ${timeDisplay}`;
-        if (selectionSummary) selectionSummary.style.display = 'block';
         
-        // Show next steps
-        showStep('step-3-details');
-        showStep('step-4-dogs');
-        showStep('step-5-submit');
+        if (selectedSlots.length === 0) {
+            if (selectionSummary) selectionSummary.style.display = 'none';
+            return;
+        }
         
-        // Scroll to next step smoothly
-        setTimeout(() => {
-            const detailsStep = document.getElementById('step-3-details');
-            if (detailsStep) {
-                detailsStep.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }
-        }, 100);
-    };
+        let summaryText;
+        if (selectedSlots.length === 1) {
+            const slot = selectedSlots[0];
+            summaryText = `${slot.dateDisplay} at ${slot.timeDisplay}`;
+        } else {
+            summaryText = `${selectedSlots.length} walks selected`;
+            
+            const detailsList = selectedSlots
+                .sort((a, b) => new Date(a.date) - new Date(b.date))
+                .map(slot => `• ${slot.dateDisplay} at ${slot.timeDisplay}`)
+                .join('<br>');
+            
+            summaryText += `<br><small>${detailsList}</small>`;
+        }
+        
+        if (selectedInfo) selectedInfo.innerHTML = summaryText;
+        if (selectionSummary) {
+            selectionSummary.style.display = 'block';
+            selectionSummary.className = selectedSlots.length > 1 
+                ? 'alert alert-success text-center'
+                : 'alert alert-info text-center';
+        }
+        
+        const bookingDateField = document.getElementById('booking-date');
+        const timeSlotField = document.getElementById('time-slot');
+        
+        if (selectedSlots.length > 0) {
+            const firstSlot = selectedSlots[0];
+            if (bookingDateField) bookingDateField.value = firstSlot.date;
+            if (timeSlotField) timeSlotField.value = firstSlot.timeSlot;
+        }
+    }
     
     async function submitGroupWalkForm() {
+        if (selectedSlots.length === 0) {
+            showGenericError('group-walk-form', 'Please select at least one time slot.');
+            return;
+        }
+        
         const formData = new FormData();
         const form = document.getElementById('group-walk-form');
         if (!form) return;
         
-        // Add basic form data including postcode
-        const basicFields = ['customer_name', 'customer_email', 'customer_phone', 'customer_address', 'customer_postcode', 'booking_date', 'time_slot', 'number_of_dogs'];
+        const basicFields = ['customer_name', 'customer_email', 'customer_phone', 'customer_address', 'customer_postcode', 'number_of_dogs'];
         basicFields.forEach(field => {
             const element = form.querySelector(`[name="${field}"]`);
             if (element) {
@@ -496,7 +593,9 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
         
-        // Add dog data including vet information
+        formData.append('selected_slots', JSON.stringify(selectedSlots));
+        formData.append('is_multi_booking', selectedSlots.length > 1 ? 'true' : 'false');
+        
         const numDogsSelector = document.getElementById('num-dogs-selector');
         const numDogs = numDogsSelector ? parseInt(numDogsSelector.value) : 0;
         
@@ -514,12 +613,10 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
         
-        // Add CSRF token
         const csrfToken = form.querySelector('[name="csrfmiddlewaretoken"]');
         if (csrfToken) {
             formData.append('csrfmiddlewaretoken', csrfToken.value);
         } else {
-            // Fallback - try to get CSRF token from page
             const pageCSRF = getCSRFToken();
             if (pageCSRF) {
                 formData.append('csrfmiddlewaretoken', pageCSRF);
@@ -538,18 +635,15 @@ document.addEventListener('DOMContentLoaded', function() {
             const result = await response.json();
             
             if (result.success) {
-                // Replace booking content with success message
                 if (bookingMainContent) {
                     bookingMainContent.innerHTML = result.html;
                 }
                 
-                // Scroll to success message
                 setTimeout(() => {
                     bookingMainContent.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 }, 100);
                 
             } else {
-                // Show errors
                 showFormErrors('group-walk-form', result.errors, result.message);
             }
         } catch (error) {
@@ -559,75 +653,180 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // ===========================================
+    // DOG FORMS GENERATION
+    // ===========================================
+    
+    function generateDogForms(numDogs, containerId) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        
+        container.innerHTML = '';
+        
+        for (let i = 0; i < numDogs; i++) {
+            const dogForm = createDogForm(i);
+            if (dogForm) container.appendChild(dogForm);
+        }
+        
+        addRealTimeValidation();
+    }
+    
+    function createDogForm(index) {
+        const template = document.getElementById('dog-form-template');
+        if (!template) {
+            return createBasicDogForm(index);
+        }
+        
+        const clone = template.content.cloneNode(true);
+        
+        clone.querySelectorAll('input, textarea, select').forEach(field => {
+            if (field.name) {
+                field.name = field.name.replace('{INDEX}', index);
+            }
+            if (field.id) {
+                field.id = field.id.replace('{INDEX}', index);
+            }
+        });
+        
+        clone.querySelectorAll('label').forEach(label => {
+            if (label.getAttribute('for')) {
+                label.setAttribute('for', label.getAttribute('for').replace('{INDEX}', index));
+            }
+        });
+        
+        const dogNumber = clone.querySelector('.dog-number');
+        if (dogNumber) dogNumber.textContent = index + 1;
+        
+        if (index > 0) {
+            const removeBtn = clone.querySelector('.remove-dog-btn');
+            if (removeBtn) {
+                removeBtn.style.display = 'block';
+                removeBtn.addEventListener('click', function() {
+                    this.closest('.dog-form').remove();
+                });
+            }
+        }
+        
+        return clone;
+    }
+    
+    function createBasicDogForm(index) {
+        const dogFormDiv = document.createElement('div');
+        dogFormDiv.className = 'dog-form card mb-3';
+        dogFormDiv.innerHTML = `
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">Dog ${index + 1} Details</h6>
+                    ${index > 0 ? '<button type="button" class="btn btn-outline-danger btn-sm remove-dog-btn"><i class="bi bi-trash"></i> Remove</button>' : ''}
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Dog's Name *</label>
+                        <input type="text" class="form-control" name="dog_${index}_name" required>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Breed *</label>
+                        <input type="text" class="form-control" name="dog_${index}_breed" required>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Age (years) *</label>
+                        <input type="number" class="form-control" name="dog_${index}_age" min="0" max="25" required>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <div class="form-check mt-4">
+                            <input type="checkbox" class="form-check-input" name="dog_${index}_good_with_other_dogs" checked>
+                            <label class="form-check-label">Good with other dogs</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Allergies/Health Concerns</label>
+                        <textarea class="form-control" name="dog_${index}_allergies" rows="2" 
+                                placeholder="Any medical conditions we should know about"></textarea>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Special Instructions</label>
+                        <textarea class="form-control" name="dog_${index}_special_instructions" rows="2" 
+                                placeholder="Special care or handling instructions"></textarea>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Behavioral Notes</label>
+                    <textarea class="form-control" name="dog_${index}_behavioral_notes" rows="2" 
+                            placeholder="Any behavioral concerns, triggers, or special needs"></textarea>
+                </div>
+                <hr>
+                <h6 class="text-primary mb-3"><i class="bi bi-plus-circle me-2"></i>Veterinary Information</h6>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Vet Practice Name *</label>
+                        <input type="text" class="form-control" name="dog_${index}_vet_name" 
+                            placeholder="e.g., Croyde Veterinary Surgery" required>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Vet Phone Number *</label>
+                        <input type="tel" class="form-control" name="dog_${index}_vet_phone" 
+                            placeholder="01271 890123" required>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Vet Practice Address *</label>
+                    <textarea class="form-control" name="dog_${index}_vet_address" rows="2" 
+                            placeholder="Full vet practice address" required></textarea>
+                </div>
+            </div>
+        `;
+        
+        if (index > 0) {
+            const removeBtn = dogFormDiv.querySelector('.remove-dog-btn');
+            if (removeBtn) {
+                removeBtn.addEventListener('click', function() {
+                    dogFormDiv.remove();
+                });
+            }
+        }
+        
+        return dogFormDiv;
+    }
+    
+    // ===========================================
     // INDIVIDUAL WALK FORM HANDLERS
     // ===========================================
     
     async function initializeIndividualWalkForm() {
-        // Force load the basic form instead of trying API endpoint
-        // (since we don't have templates set up yet)
         loadBasicIndividualForm();
         
         const timeChoice = document.getElementById('preferred_time_choice');
-        const customTimeContainer = document.getElementById('custom-time-container');
         const numDogsSelector = document.getElementById('ind_number_of_dogs');
         const preferredDate = document.getElementById('preferred_date');
         
-        // Set minimum date to tomorrow
         if (preferredDate) {
             const tomorrow = new Date();
             tomorrow.setDate(tomorrow.getDate() + 1);
             preferredDate.min = tomorrow.toISOString().split('T')[0];
         }
         
-        // Handle time choice selection
         if (timeChoice) {
             timeChoice.removeEventListener('change', handleTimeChoice);
             timeChoice.addEventListener('change', handleTimeChoice);
         }
         
-        // Handle number of dogs change
         if (numDogsSelector) {
             numDogsSelector.removeEventListener('change', handleIndividualNumDogs);
             numDogsSelector.addEventListener('change', handleIndividualNumDogs);
         }
         
-        // Handle form submission
         const individualForm = document.getElementById('individual-walk-form');
         if (individualForm) {
             individualForm.removeEventListener('submit', handleIndividualFormSubmit);
             individualForm.addEventListener('submit', handleIndividualFormSubmit);
         }
         
-        // Add real-time validation
         addRealTimeValidation();
-    }
-    
-    async function loadIndividualWalkFormContent() {
-        try {
-            const response = await fetch('/api/individual-form/');
-            if (response.ok) {
-                const html = await response.text();
-                const individualForm = document.getElementById('individual-walk-form');
-                if (individualForm) {
-                    individualForm.innerHTML = html;
-                    
-                    // Remove any duplicate warning messages after loading
-                    const warnings = individualForm.querySelectorAll('.alert-warning');
-                    if (warnings.length > 1) {
-                        // Keep only the first warning message
-                        for (let i = 1; i < warnings.length; i++) {
-                            warnings[i].remove();
-                        }
-                    }
-                }
-            } else {
-                // Fallback to basic form structure
-                loadBasicIndividualForm();
-            }
-        } catch (error) {
-            console.error('Error loading individual form:', error);
-            loadBasicIndividualForm();
-        }
     }
     
     function loadBasicIndividualForm() {
@@ -637,7 +836,6 @@ document.addEventListener('DOMContentLoaded', function() {
         individualForm.innerHTML = `
             <input type="hidden" name="csrfmiddlewaretoken" value="${getCSRFToken()}">
             
-            <!-- Your Details -->
             <div class="mb-4">
                 <h5 class="mb-3">Your Details</h5>
                 <div class="row">
@@ -681,7 +879,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
             </div>
 
-            <!-- Walk Details -->
             <div class="mb-4">
                 <h5 class="mb-3">Walk Details</h5>
                 
@@ -694,21 +891,20 @@ document.addEventListener('DOMContentLoaded', function() {
                         <label for="preferred_time_choice" class="form-label">Preferred Time *</label>
                         <select class="form-control" name="preferred_time_choice" id="preferred_time_choice" required>
                             <option value="">Select time preference...</option>
-                            <option value="early_morning">Early Morning (7:00-10:00 AM)</option>
-                            <option value="late_afternoon">Late Afternoon/Evening (5:00-7:00 PM)</option>
+                            <option value="early_morning">Early Morning (7:00-9:00 AM)</option>
+                            <option value="late_evening">Late Evening (9:00-11:00 PM)</option>
                             <option value="flexible">Flexible - let us suggest a time</option>
                             <option value="custom">Other specific time</option>
                         </select>
                     </div>
                 </div>
                 
-                <!-- Custom time input (hidden by default) -->
                 <div class="mb-3" id="custom-time-container" style="display: none;">
                     <label for="preferred_time" class="form-label">Specify Your Preferred Time</label>
                     <input type="text" class="form-control" name="preferred_time" id="preferred_time" 
                         placeholder="e.g., 8:00 AM - 9:00 AM">
                     <div class="form-text text-danger">
-                        ⚠️ Remember: 10:00 AM - 1:00 PM and 2:00 PM - 5:00 PM are not available
+                        ⚠️ Remember: 9:00 AM - 1:00 PM, 1:00 PM - 5:00 PM, and 5:00 PM - 9:00 PM are not available
                     </div>
                 </div>
                 
@@ -719,43 +915,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
             </div>
 
-            <!-- Dog Details Section -->
             <div class="mb-4">
                 <h5 class="mb-3">Dog Details</h5>
-                <div id="individual-dog-forms-container">
-                    <!-- Dog forms will be added here dynamically -->
-                </div>
+                <div id="individual-dog-forms-container"></div>
             </div>
 
-            <!-- Submit Section -->
             <div class="text-center">
                 <button type="submit" class="btn btn-success btn-lg">
                     <i class="bi bi-send"></i> Submit Individual Walk Request
                 </button>
             </div>
         `;
-
-        // Fetch unavailable dates and disable them in the date picker
-        fetch('/api/unavailable-dates/')
-            .then(response => response.json())
-            .then(data => {
-                if (data.success && data.unavailable_dates) {
-                    const dateInput = document.getElementById('preferred_date');
-                    if (dateInput) {
-                        // Add event listener to validate selected date
-                        dateInput.addEventListener('change', function() {
-                            const selectedDate = this.value;
-                            if (data.unavailable_dates.includes(selectedDate)) {
-                                alert('Sorry, this date is not available for walks. Please choose a different date.');
-                                this.value = '';
-                            }
-                        });
-                    }
-                }
-            })
-            .catch(error => {
-                console.error('Error loading unavailable dates:', error);
-            });
     }
     
     function handleTimeChoice() {
@@ -784,103 +954,64 @@ document.addEventListener('DOMContentLoaded', function() {
     function handleIndividualFormSubmit(e) {
         e.preventDefault();
         
-        // Show loading state
         const submitBtn = e.target.querySelector('button[type="submit"]');
         const originalText = submitBtn.innerHTML;
         submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Submitting...';
         submitBtn.disabled = true;
         
         submitIndividualWalkForm().finally(() => {
-            // Reset button state
             submitBtn.innerHTML = originalText;
             submitBtn.disabled = false;
         });
     }
     
     async function submitIndividualWalkForm() {
-        console.log('=== INDIVIDUAL FORM SUBMISSION DEBUG ===');
-        
         const formData = new FormData();
         const form = document.getElementById('individual-walk-form');
-        if (!form) {
-            console.error('Form not found!');
-            return;
-        }
+        if (!form) return;
 
-        console.log('Form found:', form);
-
-        // Add basic form data including postcode
         const basicFields = [
             'customer_name', 'customer_email', 'customer_phone', 'customer_address', 'customer_postcode',
             'preferred_date', 'preferred_time_choice', 'preferred_time', 
             'reason_for_individual', 'number_of_dogs'
         ];
         
-        console.log('=== BASIC FIELD VALUES ===');
         basicFields.forEach(field => {
             const element = form.querySelector(`[name="${field}"]`);
             if (element) {
-                console.log(`${field}:`, element.value);
                 formData.append(field, element.value);
-            } else {
-                console.warn(`Field ${field} not found in form`);
             }
         });
 
-        // Check number of dogs
         const numDogsSelector = document.getElementById('ind_number_of_dogs');
         const numDogs = numDogsSelector ? parseInt(numDogsSelector.value) : 0;
-        console.log('Number of dogs selected:', numDogs);
 
-        // Add dog data including vet information
-        console.log('=== DOG FORM DATA ===');
         for (let i = 0; i < numDogs; i++) {
-            console.log(`--- Dog ${i + 1} ---`);
             const dogFields = ['name', 'breed', 'age', 'allergies', 'special_instructions', 'good_with_other_dogs', 'behavioral_notes', 'vet_name', 'vet_phone', 'vet_address'];
             
             dogFields.forEach(field => {
                 const element = form.querySelector(`[name="dog_${i}_${field}"]`);
                 if (element) {
-                    let value;
                     if (element.type === 'checkbox') {
-                        value = element.checked ? 'on' : '';
-                        formData.append(`dog_${i}_${field}`, value);
+                        formData.append(`dog_${i}_${field}`, element.checked ? 'on' : '');
                     } else {
-                        value = element.value;
-                        formData.append(`dog_${i}_${field}`, value);
+                        formData.append(`dog_${i}_${field}`, element.value);
                     }
-                    console.log(`  dog_${i}_${field}:`, value);
-                } else {
-                    console.warn(`  Dog field dog_${i}_${field} not found`);
                 }
             });
         }
 
-        // Add CSRF token
-        console.log('=== CSRF TOKEN ===');
         const csrfToken = form.querySelector('[name="csrfmiddlewaretoken"]');
         if (csrfToken) {
-            console.log('CSRF token found:', csrfToken.value);
             formData.append('csrfmiddlewaretoken', csrfToken.value);
         } else {
-            // Fallback - try to get CSRF token from page
             const pageCSRF = getCSRFToken();
-            console.log('Fallback CSRF token:', pageCSRF);
             if (pageCSRF) {
                 formData.append('csrfmiddlewaretoken', pageCSRF);
-            } else {
-                console.error('No CSRF token found!');
             }
         }
 
-        // Log all FormData entries
-        console.log('=== FINAL FORM DATA ===');
-        for (let [key, value] of formData.entries()) {
-            console.log(`${key}: ${value}`);
-        }
-
         try {
-            console.log('Sending request to /book/individual/...');
             const response = await fetch('/book/individual/', {
                 method: 'POST',
                 body: formData,
@@ -889,202 +1020,34 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             });
 
-            console.log('Response status:', response.status);
-            console.log('Response ok:', response.ok);
-
             const result = await response.json();
-            console.log('Response JSON:', result);
 
             if (result.success) {
-                console.log('Success! Showing success message');
-                // Replace booking content with success message
                 if (bookingMainContent) {
                     bookingMainContent.innerHTML = result.html;
                 }
                 
-                // Scroll to success message
                 setTimeout(() => {
                     bookingMainContent.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 }, 100);
                 
             } else {
-                console.log('Form validation failed');
-                console.log('Errors:', result.errors);
-                console.log('Message:', result.message);
-                // Show errors
                 showFormErrors('individual-walk-form', result.errors, result.message);
             }
         } catch (error) {
             console.error('Network error:', error);
             showGenericError('individual-walk-form', 'An error occurred while submitting your request. Please check your internet connection and try again.');
         }
-        
-        console.log('=== END INDIVIDUAL FORM SUBMISSION DEBUG ===');
     }
     
     // ===========================================
-    // DOG FORMS GENERATION
-    // ===========================================
-    
-    function generateDogForms(numDogs, containerId) {
-        const container = document.getElementById(containerId);
-        if (!container) return;
-        
-        container.innerHTML = '';
-        
-        for (let i = 0; i < numDogs; i++) {
-            const dogForm = createDogForm(i);
-            if (dogForm) container.appendChild(dogForm);
-        }
-        
-        // Re-apply real-time validation to new fields
-        addRealTimeValidation();
-    }
-    
-    function createDogForm(index) {
-        const template = document.getElementById('dog-form-template');
-        if (!template) {
-            // Create basic dog form if template doesn't exist
-            return createBasicDogForm(index);
-        }
-        
-        const clone = template.content.cloneNode(true);
-        
-        // Update form field names and IDs
-        clone.querySelectorAll('input, textarea, select').forEach(field => {
-            if (field.name) {
-                field.name = field.name.replace('{INDEX}', index);
-            }
-            if (field.id) {
-                field.id = field.id.replace('{INDEX}', index);
-            }
-        });
-        
-        // Update labels
-        clone.querySelectorAll('label').forEach(label => {
-            if (label.getAttribute('for')) {
-                label.setAttribute('for', label.getAttribute('for').replace('{INDEX}', index));
-            }
-        });
-        
-        // Update dog number
-        const dogNumber = clone.querySelector('.dog-number');
-        if (dogNumber) dogNumber.textContent = index + 1;
-        
-        // Show remove button for additional dogs
-        if (index > 0) {
-            const removeBtn = clone.querySelector('.remove-dog-btn');
-            if (removeBtn) {
-                removeBtn.style.display = 'block';
-                removeBtn.addEventListener('click', function() {
-                    this.closest('.dog-form').remove();
-                });
-            }
-        }
-        
-        return clone;
-    }
-    
-    function createBasicDogForm(index) {
-        const dogFormDiv = document.createElement('div');
-        dogFormDiv.className = 'dog-form card mb-3';
-        dogFormDiv.innerHTML = `
-            <div class="card-header">
-                <div class="d-flex justify-content-between align-items-center">
-                    <h6 class="mb-0">Dog ${index + 1} Details</h6>
-                    ${index > 0 ? '<button type="button" class="btn btn-outline-danger btn-sm remove-dog-btn"><i class="bi bi-trash"></i> Remove</button>' : ''}
-                </div>
-            </div>
-            <div class="card-body">
-                <!-- Basic Dog Info -->
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">Dog's Name *</label>
-                        <input type="text" class="form-control" name="dog_${index}_name" required>
-                    </div>
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">Breed *</label>
-                        <input type="text" class="form-control" name="dog_${index}_breed" required>
-                    </div>
-                </div>
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">Age (years) *</label>
-                        <input type="number" class="form-control" name="dog_${index}_age" min="0" max="25" required>
-                    </div>
-                    <div class="col-md-6 mb-3">
-                        <div class="form-check mt-4">
-                            <input type="checkbox" class="form-check-input" name="dog_${index}_good_with_other_dogs" checked>
-                            <label class="form-check-label">Good with other dogs</label>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Health & Care Info -->
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">Allergies/Health Concerns</label>
-                        <textarea class="form-control" name="dog_${index}_allergies" rows="2" 
-                                placeholder="Any medical conditions we should know about"></textarea>
-                    </div>
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">Special Instructions</label>
-                        <textarea class="form-control" name="dog_${index}_special_instructions" rows="2" 
-                                placeholder="Special care or handling instructions"></textarea>
-                    </div>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Behavioral Notes</label>
-                    <textarea class="form-control" name="dog_${index}_behavioral_notes" rows="2" 
-                            placeholder="Any behavioral concerns, triggers, or special needs"></textarea>
-                </div>
-
-                <!-- Vet Information -->
-                <hr>
-                <h6 class="text-primary mb-3"><i class="bi bi-plus-circle me-2"></i>Veterinary Information</h6>
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">Vet Practice Name *</label>
-                        <input type="text" class="form-control" name="dog_${index}_vet_name" 
-                            placeholder="e.g., Croyde Veterinary Surgery" required>
-                    </div>
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">Vet Phone Number *</label>
-                        <input type="tel" class="form-control" name="dog_${index}_vet_phone" 
-                            placeholder="01271 890123" required>
-                    </div>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Vet Practice Address *</label>
-                    <textarea class="form-control" name="dog_${index}_vet_address" rows="2" 
-                            placeholder="Full vet practice address" required></textarea>
-                </div>
-            </div>
-        `;
-        
-        // Add remove button functionality
-        if (index > 0) {
-            const removeBtn = dogFormDiv.querySelector('.remove-dog-btn');
-            if (removeBtn) {
-                removeBtn.addEventListener('click', function() {
-                    dogFormDiv.remove();
-                });
-            }
-        }
-        
-        return dogFormDiv;
-    }
-    
-    // ===========================================
-    // ERROR HANDLING
+    // ERROR HANDLING AND VALIDATION
     // ===========================================
     
     function showFormErrors(formId, errors, message) {
-        // Clear previous errors
         document.querySelectorAll('.error-message').forEach(el => el.remove());
         document.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
         
-        // Show general message
         if (message) {
             const form = document.getElementById(formId);
             if (form) {
@@ -1098,7 +1061,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
         
-        // Show field-specific errors
         if (errors) {
             Object.keys(errors).forEach(fieldName => {
                 const field = document.querySelector(`[name="${fieldName}"]`);
@@ -1109,13 +1071,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     errorDiv.className = 'invalid-feedback error-message';
                     errorDiv.textContent = Array.isArray(errors[fieldName]) ? errors[fieldName].join(', ') : errors[fieldName];
                     
-                    // Insert error message after the field
                     field.parentNode.insertBefore(errorDiv, field.nextSibling);
                 }
             });
         }
         
-        // Scroll to first error
         const firstError = document.querySelector('.is-invalid, .alert-danger');
         if (firstError) {
             firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -1125,7 +1085,6 @@ document.addEventListener('DOMContentLoaded', function() {
     function showGenericError(formId, message) {
         const form = document.getElementById(formId);
         if (form) {
-            // Clear previous errors
             document.querySelectorAll('.error-message').forEach(el => el.remove());
             
             const alert = document.createElement('div');
@@ -1136,55 +1095,11 @@ document.addEventListener('DOMContentLoaded', function() {
             `;
             form.insertBefore(alert, form.firstChild);
             
-            // Scroll to error
             alert.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
     }
     
-    // ===========================================
-    // UTILITY FUNCTIONS
-    // ===========================================
-    
-    function getCSRFToken() {
-        // Try to get CSRF token from various sources
-        const cookieCSRF = document.querySelector('[name=csrfmiddlewaretoken]');
-        if (cookieCSRF) return cookieCSRF.value;
-        
-        const metaCSRF = document.querySelector('meta[name="csrf-token"]');
-        if (metaCSRF) return metaCSRF.getAttribute('content');
-        
-        // Try to get from cookie
-        const cookies = document.cookie.split(';');
-        for (let cookie of cookies) {
-            const [name, value] = cookie.trim().split('=');
-            if (name === 'csrftoken') {
-                return value;
-            }
-        }
-        
-        return '';
-    }
-    
-    // Form validation helpers
-    function validateEmail(email) {
-        const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        return re.test(email);
-    }
-    
-    function validatePhone(phone) {
-        const re = /^[\d\s\-\+\(\)]+$/;
-        return re.test(phone) && phone.replace(/\D/g, '').length >= 10;
-    }
-    
-    function validatePostcode(postcode) {
-        // UK postcode validation for areas around Croyde, North Devon
-        const re = /^(EX3[1-4])\s?[0-9][A-Z]{2}$/i;
-        return re.test(postcode);
-    }
-    
-    // Add real-time validation to forms
     function addRealTimeValidation() {
-        // Email validation
         document.querySelectorAll('input[type="email"]').forEach(emailField => {
             if (!emailField.hasAttribute('data-validated')) {
                 emailField.setAttribute('data-validated', 'true');
@@ -1194,7 +1109,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
         
-        // Phone validation
         document.querySelectorAll('input[type="tel"]').forEach(phoneField => {
             if (!phoneField.hasAttribute('data-validated')) {
                 phoneField.setAttribute('data-validated', 'true');
@@ -1204,7 +1118,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
         
-        // Postcode validation and formatting
         document.querySelectorAll('input[name="customer_postcode"], input[name*="postcode"]').forEach(postcodeField => {
             if (!postcodeField.hasAttribute('data-validated')) {
                 postcodeField.setAttribute('data-validated', 'true');
@@ -1215,7 +1128,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 postcodeField.addEventListener('blur', function() {
                     if (this.value) {
-                        // Auto-format postcode (add space if missing)
                         let postcode = this.value.replace(/\s/g, '');
                         if (postcode.length >= 5) {
                             postcode = postcode.slice(0, -3) + ' ' + postcode.slice(-3);
@@ -1230,7 +1142,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
         
-        // Required field validation
         document.querySelectorAll('input[required], textarea[required], select[required]').forEach(field => {
             if (!field.hasAttribute('data-required-validated')) {
                 field.setAttribute('data-required-validated', 'true');
@@ -1249,11 +1160,9 @@ document.addEventListener('DOMContentLoaded', function() {
         if (field.value && !isValid) {
             field.classList.add('is-invalid');
             
-            // Remove existing error message
             const existingError = field.parentNode.querySelector('.invalid-feedback');
             if (existingError) existingError.remove();
             
-            // Add new error message
             const errorDiv = document.createElement('div');
             errorDiv.className = 'invalid-feedback';
             errorDiv.textContent = errorMessage;
@@ -1267,9 +1176,6 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Global function to go back to service selection
     window.goBackToServiceSelection = function() {
-        console.log('goBackToServiceSelection called');
-        
-        // Hide forms and show service selection
         const serviceSelection = document.getElementById('booking-service-selection');
         const backToSelection = document.getElementById('back-to-selection');
         const groupForm = document.getElementById('group-booking-form');
@@ -1280,21 +1186,81 @@ document.addEventListener('DOMContentLoaded', function() {
         if (groupForm) groupForm.style.display = 'none';
         if (individualForm) individualForm.style.display = 'none';
         
-        // Reset variables
-        selectedDate = null;
-        selectedTimeSlot = null;
+        selectedSlots = [];
         currentBookingType = null;
         availabilityData = [];
+        isMultiBookingMode = false;
         
-        // Clear any error messages
         document.querySelectorAll('.error-message').forEach(el => el.remove());
         document.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
-        
-        console.log('Back to service selection completed');
     };
     
-    // Initialize real-time validation on page load
+    // SLOT SELECTION FUNCTION (UPDATED VERSION)
+    window.selectSlot = function(date, timeSlot, timeDisplay, dateDisplay) {
+        console.log('selectSlot called:', date, timeSlot, timeDisplay, dateDisplay);
+        
+        const slotData = { date, timeSlot, timeDisplay, dateDisplay };
+        
+        if (isMultiBookingMode) {
+            // Multi-slot selection
+            const existingIndex = selectedSlots.findIndex(slot => 
+                slot.date === slotData.date && slot.timeSlot === slotData.timeSlot
+            );
+            
+            if (existingIndex >= 0) {
+                selectedSlots.splice(existingIndex, 1);
+            } else {
+                selectedSlots.push(slotData);
+            }
+            
+            updateCalendarDisplay();
+            updateSelectionSummary();
+            updateSubmitButtonText();
+            
+            // Only show next steps if we have selections
+            if (selectedSlots.length > 0) {
+                showStep('step-3-details');
+                showStep('step-4-dogs');
+                showStep('step-5-submit');
+            }
+        } else {
+            // Single slot selection - UPDATED LOGIC
+            selectedSlots = [slotData];
+            
+            // Visual selection
+            document.querySelectorAll('.day-card.selected, .time-slot.selected').forEach(el => {
+                el.classList.remove('selected');
+            });
+            
+            const dayCard = document.querySelector(`[data-date="${date}"]`);
+            if (dayCard) {
+                const timeSlotEl = dayCard.querySelector(`[data-time-slot="${timeSlot}"]`);
+                
+                dayCard.classList.add('selected');
+                if (timeSlotEl) timeSlotEl.classList.add('selected');
+            }
+            
+            // Update form fields
+            const bookingDateField = document.getElementById('booking-date');
+            const timeSlotField = document.getElementById('time-slot');
+            if (bookingDateField) bookingDateField.value = date;
+            if (timeSlotField) timeSlotField.value = timeSlot;
+            
+            // Show selection summary
+            const selectedInfo = document.getElementById('selected-info');
+            const selectionSummary = document.getElementById('selection-summary');
+            if (selectedInfo) selectedInfo.textContent = `${dateDisplay} at ${timeDisplay}`;
+            if (selectionSummary) selectionSummary.style.display = 'block';
+            
+            // Show multi-booking toggle after first selection
+            showMultiBookingToggle();
+            
+            // Show continue button instead of automatically proceeding
+            showContinueButton();
+        }
+    };
+    
     addRealTimeValidation();
     
-    console.log('Booking system JavaScript loaded successfully with calendar integration!');
+    console.log('Booking system JavaScript loaded successfully with multi-booking support!');
 });
