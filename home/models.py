@@ -52,7 +52,7 @@ class BaseBooking(models.Model):
 class GroupWalk(BaseBooking):
     # UPDATED TIME SLOT CHOICES - New times as requested
     TIME_SLOT_CHOICES = [
-        ('10:00-12:00', '10:00 AM - 12:00 PM'),
+        ('09:30-11:30', '09:30 AM - 11:30 PM'),
         ('14:00-16:00', '2:00 PM - 4:00 PM'),
         ('18:00-20:00', '6:00 PM - 8:00 PM'),  # NEW EVENING SLOT
     ]
@@ -197,7 +197,7 @@ class GroupWalk(BaseBooking):
             for time_slot, time_display in cls.TIME_SLOT_CHOICES:
                 # Check if slot is available via slot manager
                 if slot_manager:
-                    if time_slot == '10:00-12:00' and not slot_manager.morning_slot_available:
+                    if time_slot == '09:30-11:30' and not slot_manager.morning_slot_available:
                         continue
                     if time_slot == '14:00-16:00' and not slot_manager.afternoon_slot_available:
                         continue
@@ -205,7 +205,7 @@ class GroupWalk(BaseBooking):
                         continue
                     
                     # Use custom capacity if set
-                    if time_slot == '10:00-12:00':
+                    if time_slot == '09:30-11:30':
                         max_capacity = slot_manager.morning_slot_capacity
                     elif time_slot == '14:00-16:00':
                         max_capacity = slot_manager.afternoon_slot_capacity
@@ -278,7 +278,7 @@ class IndividualWalk(BaseBooking):
 
     # UPDATED restricted time slots for individual walks (new group walk times + 1 hour buffer)
     RESTRICTED_TIME_RANGES = [
-        ('09:00-13:00', '9:00 AM - 1:00 PM (Group Walk + buffer)'),    # 10-12 + 1hr buffer each side
+        ('08:30-12:30', '8:30 AM - 12:30 PM (Group Walk + buffer)'),    # 9:30-11:30 + 1hr buffer each side
         ('13:00-17:00', '1:00 PM - 5:00 PM (Group Walk + buffer)'),    # 14-16 + 1hr buffer each side  
         ('17:00-21:00', '5:00 PM - 9:00 PM (Group Walk + buffer)'),    # 18-20 + 1hr buffer each side
     ]
@@ -286,7 +286,7 @@ class IndividualWalk(BaseBooking):
     preferred_date = models.DateField()
     preferred_time = models.CharField(
         max_length=100,
-        help_text="Preferred time (Note: 9AM-1PM, 1PM-5PM and 5PM-9PM are not available due to group walks)"
+        help_text="Preferred time (Note: 8.30AM-12.30PM, 1PM-5PM and 5PM-9PM are not available due to group walks)"
     )
     reason_for_individual = models.TextField(
         help_text="Why does your dog need to be walked alone? (In training, non-sociable, etc.)"
@@ -431,14 +431,14 @@ class IndividualWalk(BaseBooking):
                 return  # Skip time restriction validation for safe choices
 
             # Updated validation patterns for new restricted times
-            morning_restricted = ['09:', '10:', '11:', '12:', '9am', '10am', '11am', '12pm', 'noon', 'midday']
+            morning_restricted = ['08:', '09:', '10:', '11:', '12:', '8am', '9am', '10am', '11am', '12pm', 'noon', 'midday']
             afternoon_restricted = ['13:', '14:', '15:', '16:', '1pm', '2pm', '3pm', '4pm']
             evening_restricted = ['17:', '18:', '19:', '20:', '5pm', '6pm', '7pm', '8pm']
             
             conflicts = []
             for pattern in morning_restricted:
                 if pattern in preferred_lower:
-                    conflicts.append("9:00 AM - 1:00 PM")
+                    conflicts.append("8:30 AM - 12:30 PM")
                     break
             for pattern in afternoon_restricted:
                 if pattern in preferred_lower:
@@ -453,14 +453,14 @@ class IndividualWalk(BaseBooking):
                 raise ValidationError(
                     f"Individual walks cannot be scheduled during {', '.join(set(conflicts))} "
                     "due to group walk sessions and required buffer time. "
-                    "Available times: 7:00-9:00 AM, 9:00 PM onwards, or select 'Flexible'."
+                    "Available times: 6:00-8:00 AM, 9:00 PM onwards, or select 'Flexible'."
                 )
     
     @classmethod
     def get_available_time_suggestions(cls):
         """Get suggested available time slots for individual walks"""
         return [
-            "7:00 AM - 9:00 AM (Early Morning)",
+            "6:00 AM - 8:00 AM (Early Morning)",
             "9:00 PM - 11:00 PM (Late Evening)", 
             "Flexible (let us suggest a time)",
             "Early morning (before 9 AM)",
@@ -491,7 +491,7 @@ class GroupWalkSlotManager(models.Model):
     date = models.DateField(unique=True)
     morning_slot_available = models.BooleanField(
         default=True, 
-        help_text="10:00 AM - 12:00 PM slot available"
+        help_text="09:30 AM - 11:30 PM slot available"
     )
     afternoon_slot_available = models.BooleanField(
         default=True, 
@@ -557,7 +557,7 @@ class GroupWalkSlotManager(models.Model):
         """Get number of dogs booked for morning slot"""
         return GroupWalk.objects.filter(
             booking_date=self.date,
-            time_slot='10:00-12:00',
+            time_slot='09:30-11:30',
             status='confirmed'
         ).aggregate(total=models.Sum('number_of_dogs'))['total'] or 0
     

@@ -891,7 +891,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         <label for="preferred_time_choice" class="form-label">Preferred Time *</label>
                         <select class="form-control" name="preferred_time_choice" id="preferred_time_choice" required>
                             <option value="">Select time preference...</option>
-                            <option value="early_morning">Early Morning (7:00-9:00 AM)</option>
+                            <option value="early_morning">Early Morning (6:00-8:00 AM)</option>
                             <option value="late_evening">Late Evening (9:00-11:00 PM)</option>
                             <option value="flexible">Flexible - let us suggest a time</option>
                             <option value="custom">Other specific time</option>
@@ -904,7 +904,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     <input type="text" class="form-control" name="preferred_time" id="preferred_time" 
                         placeholder="e.g., 8:00 AM - 9:00 AM">
                     <div class="form-text text-danger">
-                        ⚠️ Remember: 9:00 AM - 1:00 PM, 1:00 PM - 5:00 PM, and 5:00 PM - 9:00 PM are not available
+                        ⚠️ Remember: 8:30 AM - 12:30 PM, 1:00 PM - 5:00 PM, and 5:00 PM - 9:00 PM are not available
                     </div>
                 </div>
                 

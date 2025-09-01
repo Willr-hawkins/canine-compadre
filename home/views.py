@@ -285,7 +285,7 @@ def individual_walk_booking(request):
     # Handle preferred_time_choice conversion - UPDATED for new available times
     preferred_time_choice = form_data.get('preferred_time_choice')
     if preferred_time_choice == 'early_morning':
-        form_data['preferred_time'] = 'Early Morning (7:00 AM - 9:00 AM)'
+        form_data['preferred_time'] = 'Early Morning (6:00 AM - 8:00 AM)'
     elif preferred_time_choice == 'late_evening':
         form_data['preferred_time'] = 'Late Evening (9:00 PM - 11:00 PM)'
     elif preferred_time_choice == 'flexible':
@@ -567,7 +567,7 @@ def check_slot_availability(request):
         
         if slot_manager:
             # UPDATED for new time slots
-            if time_slot == '10:00-12:00' and not slot_manager.morning_slot_available:
+            if time_slot == '09:30-11:30' and not slot_manager.morning_slot_available:
                 return JsonResponse({
                     'available_spots': 0,
                     'can_book': False,
@@ -590,7 +590,7 @@ def check_slot_availability(request):
                 })
             
             # Use custom capacity if set - UPDATED for new time slots
-            if time_slot == '10:00-12:00':
+            if time_slot == '09:30-11:30':
                 max_capacity = slot_manager.morning_slot_capacity
             elif time_slot == '14:00-16:00':
                 max_capacity = slot_manager.afternoon_slot_capacity
