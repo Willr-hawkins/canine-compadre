@@ -183,7 +183,7 @@ class GroupWalk(BaseBooking):
         logger.info(f"Group walk booking {self.pk} cancelled. Reason: {reason}")
     
     @classmethod
-    def get_available_slots(cls, days_ahead=30, required_dogs=1):
+    def get_available_slots(cls, days_ahead=180, required_dogs=1):
         """Get all available slots for the next x days that can accommodate required_dogs"""
         available_slots = []
         start_date = date.today() + timedelta(days=1)  # Start from tomorrow

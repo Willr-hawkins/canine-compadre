@@ -472,13 +472,13 @@ def individual_walk_booking(request):
 def get_availability_calendar(request):
     """AJAX endpoint to get calendar availability data for group walks with slot manager integration"""
     try:
-        days_ahead = int(request.GET.get('days', 30))
+        days_ahead = int(request.GET.get('days', 180))
         num_dogs = int(request.GET.get('num_dogs', 1))
         
         # Validate parameters
         if num_dogs < 1 or num_dogs > 4:
             return JsonResponse({'error': 'Invalid number of dogs'}, status=400)
-        if days_ahead < 1 or days_ahead > 90:
+        if days_ahead < 1 or days_ahead > 180:
             return JsonResponse({'error': 'Invalid date range'}, status=400)
         
         # Get available slots using the model method
