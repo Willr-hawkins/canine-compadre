@@ -169,7 +169,7 @@ GOOGLE_SERVICE_ACCOUNT_KEY = os.environ.get('GOOGLE_SERVICE_ACCOUNT_KEY')
 # ===========================================
 
 # Business contact information
-BUSINESS_EMAIL = 'booking@caninecompadre.co.uk'
+BUSINESS_EMAIL = 'booking@mail.caninecompadre.co.uk'
 BUSINESS_PHONE = ''  # Replace with Alex's actual phone number
 ADMIN_EMAIL = 'alex@caninecompadre.co.uk'  # Replace with Alex's actual email
 SITE_URL = 'https://caninecompadre.co.uk' if not DEBUG else 'http://localhost:8000'
@@ -178,6 +178,10 @@ SITE_URL = 'https://caninecompadre.co.uk' if not DEBUG else 'http://localhost:80
 # EMAIL CONFIGURATION
 # ===========================================
 
+# Default email settings
+DEFAULT_FROM_EMAIL = BUSINESS_EMAIL
+SERVER_EMAIL = BUSINESS_EMAIL
+
 # Email backend configuration
 if DEBUG:
     # For development - prints emails to console instead of sending
@@ -185,16 +189,13 @@ if DEBUG:
 else:
     # For production - configure your email service
     EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-    EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
+    EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.sendgrid.net')
     EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
     EMAIL_USE_TLS = True
     EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', BUSINESS_EMAIL)
-    EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
+    EMAIL_HOST_PASSWORD = os.environ.get('SENDGRID_API_KEY')
+    SERVER_EMAIL = DEFAULT_FROM_EMAIL
     EMAIL_TIMEOUT = 30
-
-# Default email settings
-DEFAULT_FROM_EMAIL = BUSINESS_EMAIL
-SERVER_EMAIL = BUSINESS_EMAIL
 
 # ===========================================
 # LOGGING CONFIGURATION
