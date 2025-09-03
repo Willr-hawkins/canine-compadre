@@ -314,7 +314,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     async function loadAvailabilityCalendar(numDogs) {
         try {
-            const response = await fetch(`/api/availability/?days=30&num_dogs=${numDogs}`);
+            const response = await fetch(`/api/availability/?days=180&num_dogs=${numDogs}`);
             
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
