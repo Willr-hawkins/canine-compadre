@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'anymail',
 
     # Project Apps
     'home',
@@ -169,7 +170,7 @@ GOOGLE_SERVICE_ACCOUNT_KEY = os.environ.get('GOOGLE_SERVICE_ACCOUNT_KEY')
 # ===========================================
 
 # Business contact information
-BUSINESS_EMAIL = 'booking@mail.caninecompadre.co.uk'
+BUSINESS_EMAIL = 'booking@caninecompadre.co.uk'
 BUSINESS_PHONE = ''  # Replace with Alex's actual phone number
 ADMIN_EMAIL = 'alex@caninecompadre.co.uk'  # Replace with Alex's actual email
 SITE_URL = 'https://caninecompadre.co.uk' if not DEBUG else 'http://localhost:8000'
@@ -184,18 +185,15 @@ SERVER_EMAIL = BUSINESS_EMAIL
 
 # Email backend configuration
 if DEBUG:
-    # For development - prints emails to console instead of sending
+    # For development - prints emails to console
     EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 else:
-    # For production - configure your email service
-    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-    EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.sendgrid.net')
-    EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
-    EMAIL_USE_TLS = True
-    EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', BUSINESS_EMAIL)
-    EMAIL_HOST_PASSWORD = os.environ.get('SENDGRID_API_KEY')
-    SERVER_EMAIL = DEFAULT_FROM_EMAIL
-    EMAIL_TIMEOUT = 30
+    # Production - SendGrid via AnyMail API
+    EMAIL_BACKEND = 'anymail.backends.sendgrid.EmailBackend'
+
+    ANYMAIL = {
+        "SENDGRID_API_KEY": os.environ.get("SENDGRID_API_KEY"),
+    }
 
 # ===========================================
 # LOGGING CONFIGURATION
