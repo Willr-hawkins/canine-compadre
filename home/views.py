@@ -218,6 +218,8 @@ def group_walk_booking(request):
                         logger.warning(f"Failed to send confirmation email for {len(created_bookings)} booking(s)")
                 except Exception as e:
                     logger.error(f"Error sending confirmation email: {str(e)}")
+                    # Don't let email failure break the booking - set to False and continue
+                    customer_email_sent = False
             
             # Send admin notification
             admin_email_sent = False
