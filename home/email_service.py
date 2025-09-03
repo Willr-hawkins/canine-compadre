@@ -1,14 +1,55 @@
-from django.core.mail import send_mail, EmailMultiAlternatives
+from django.core.mail import send_mail, EmailMultiAlternatives, get_connection
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 from django.conf import settings
 from django.urls import reverse
 import logging
+import time
 
 logger = logging.getLogger(__name__)
 
 class EmailService:
     """Service for sending booking confirmation and notification emails"""
+
+    @staticmethod
+    def send_email_with_retry(subject, message, from_email, recipient_list, html_content=None, max_retries=3):
+        """Send email with retry logic for better reliability"""
+        for attempt in range(max_retries):
+            try:
+                if html_content:
+                    # Send HTML email
+                    msg = EmailMultiAlternatives(
+                        subject=subject,
+                        body=message,
+                        from_email=from_email,
+                        to=recipient_list,
+                        reply_to=[from_email]
+                    )
+                    msg.attach_alternative(html_content, "text/html")
+                    msg.send()
+                else:
+                    # Send plain text email
+                    send_mail(
+                        subject=subject,
+                        message=message,
+                        from_email=from_email,
+                        recipient_list=recipient_list,
+                        fail_silently=True
+                    )
+                
+                logger.info(f"Email sent successfully on attempt {attempt + 1}")
+                return True
+                
+            except Exception as e:
+                logger.warning(f"Email sending attempt {attempt + 1} failed: {str(e)}")
+                if attempt < max_retries - 1:
+                    # Wait before retry (exponential backoff)
+                    time.sleep(2 ** attempt)
+                else:
+                    logger.error(f"Email sending failed after {max_retries} attempts: {str(e)}")
+                    return False
+        
+        return False
     
     @staticmethod
     def send_group_walk_confirmation(booking):
@@ -59,7 +100,7 @@ class EmailService:
                     message=text_content,
                     from_email=settings.BUSINESS_EMAIL,
                     recipient_list=[booking.customer_email],
-                    fail_silently=False
+                    fail_silently=True
                 )
             
             logger.info(f"Group walk confirmation email sent to {booking.customer_email} for booking {booking.id}")
@@ -117,7 +158,7 @@ class EmailService:
                     message=text_content,
                     from_email=settings.BUSINESS_EMAIL,
                     recipient_list=[booking.customer_email],
-                    fail_silently=False
+                    fail_silently=True
                 )
             
             logger.info(f"Individual walk request confirmation email sent to {booking.customer_email} for booking {booking.id}")
@@ -181,7 +222,7 @@ class EmailService:
                     message=text_content,
                     from_email=settings.BUSINESS_EMAIL,
                     recipient_list=[booking.customer_email],
-                    fail_silently=False
+                    fail_silently=True
                 )
             
             logger.info(f"Individual walk response email sent to {booking.customer_email} for booking {booking.id}")
@@ -256,7 +297,7 @@ View in admin: {settings.SITE_URL}/admin/
                 message=message,
                 from_email=settings.BUSINESS_EMAIL,
                 recipient_list=[admin_email],
-                fail_silently=False
+                fail_silently=True
             )
             
             logger.info(f"Admin notification email sent for {booking_type} booking {booking.id}")
@@ -481,7 +522,7 @@ Canine Compadre
                     message=text_content,
                     from_email=settings.BUSINESS_EMAIL,
                     recipient_list=[first_booking.customer_email],
-                    fail_silently=False
+                    fail_silently=True
                 )
             
             logger.info(f"Multi-booking confirmation email sent to {first_booking.customer_email} for {total_bookings} bookings")
@@ -569,7 +610,7 @@ Canine Compadre
                 message=message,
                 from_email=settings.BUSINESS_EMAIL,
                 recipient_list=[admin_email],
-                fail_silently=False
+                fail_silently=True
             )
             
             logger.info(f"Admin multi-booking notification sent for {total_bookings} bookings")

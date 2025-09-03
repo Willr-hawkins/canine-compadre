@@ -190,7 +190,7 @@ else:
     EMAIL_USE_TLS = True
     EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', BUSINESS_EMAIL)
     EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
-    EMAIL_TIMEOUT = 15
+    EMAIL_TIMEOUT = 30
 
 # Default email settings
 DEFAULT_FROM_EMAIL = BUSINESS_EMAIL
