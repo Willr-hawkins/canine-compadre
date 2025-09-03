@@ -25,8 +25,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ.get('SECRET_KEY' ,'django-insecure-&&+-7s@bc$kngd$1r0^cgtcc(ux*)#893b*&yv9@1_0(cx+ygl')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-#DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'
-DEBUG = True
+DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'
+#DEBUG = True
 
 ALLOWED_HOSTS = [
     'caninecompadre.onrender.com',
