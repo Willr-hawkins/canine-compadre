@@ -153,9 +153,17 @@ def group_walk_booking(request):
                 # Validate this specific slot
                 form = GroupWalkForm(form_data)
                 if not form.is_valid():
-                    error_msg = f"Slot {slot_data['dateDisplay']} at {slot_data['timeDisplay']}: " + \
-                               ", ".join([f"{field}: {', '.join(errors)}" for field, errors in form.errors.items()])
-                    raise ValidationError(error_msg)
+                    # Clean up the form errors and return them properly
+                    slot_errors = {}
+                    for field_name, field_errors in form.errors.items():
+                        clean_errors = [str(error) for error in field_errors]
+                        slot_errors[field_name] = clean_errors
+                    
+                    return JsonResponse({
+                        'success': False,
+                        'message': f'Validation failed for slot {slot_data["dateDisplay"]} at {slot_data["timeDisplay"]}',
+                        'errors': slot_errors
+                    })
                 
                 # Create the booking
                 booking = form.save(commit=False)
@@ -351,16 +359,24 @@ def individual_walk_booking(request):
                 
                 # Send confirmation email to customer
                 customer_email_sent = False
+                print(f"DEBUG: INTEGRATIONS_AVAILABLE = {INTEGRATIONS_AVAILABLE}")
+                print(f"DEBUG: About to send email to {booking.customer_email} for booking {booking.id}")
+
                 if INTEGRATIONS_AVAILABLE:
                     try:
                         customer_email_sent = EmailService.send_individual_walk_request_confirmation(booking)
+                        print(f"DEBUG: Email send result = {customer_email_sent}")
                         if customer_email_sent:
                             logger.info(f"Confirmation email sent for individual walk request {booking.id}")
                         else:
                             logger.warning(f"Failed to send confirmation email for individual walk request {booking.id}")
+                            print(f"DEBUG: Email send returned False - check EmailService logs")
                     except Exception as e:
+                        print(f"DEBUG: Exception during email send: {str(e)}")
                         logger.error(f"Error sending confirmation email for individual walk request {booking.id}: {str(e)}")
-                
+                else:
+                    print("DEBUG: INTEGRATIONS_AVAILABLE is False - emails disabled")
+                    
                 # Send admin notification
                 admin_email_sent = False
                 if INTEGRATIONS_AVAILABLE:

@@ -228,7 +228,7 @@
                                 <div class="row">
                                     <div class="col-md-4">
                                         <strong>9:00 AM - 1:00 PM</strong><br>
-                                        <small>(Group walk 10AM-12PM + buffer)</small>
+                                        <small>(Group walk 9:30AM-11:30AM + buffer)</small>
                                     </div>
                                     <div class="col-md-4">
                                         <strong>1:00 PM - 5:00 PM</strong><br>
@@ -295,50 +295,78 @@
                     </div>
                     <div class="col-md-6 mb-3">
                         <div class="form-check mt-4">
-                            <input type="checkbox" class="form-check-input dog-social" name="dog_{INDEX}_good_with_other_dogs" checked>
+                            <input type="checkbox" class="form-check-input dog-social"
+                                name="dog_{INDEX}_good_with_other_dogs" checked>
                             <label class="form-check-label">Good with other dogs</label>
                         </div>
                     </div>
                 </div>
-
+    
                 <!-- Health & Care Info -->
                 <div class="row">
                     <div class="col-md-6 mb-3">
                         <label class="form-label">Allergies/Health Concerns</label>
-                        <textarea class="form-control dog-allergies" name="dog_{INDEX}_allergies" rows="2" 
-                                placeholder="Any medical conditions we should know about"></textarea>
+                        <textarea class="form-control dog-allergies" name="dog_{INDEX}_allergies" rows="2"
+                            placeholder="Any medical conditions we should know about"></textarea>
                     </div>
                     <div class="col-md-6 mb-3">
                         <label class="form-label">Special Instructions</label>
-                        <textarea class="form-control dog-instructions" name="dog_{INDEX}_special_instructions" rows="2" 
-                                placeholder="Special care or handling instructions"></textarea>
+                        <textarea class="form-control dog-instructions" name="dog_{INDEX}_special_instructions" rows="2"
+                            placeholder="Special care or handling instructions"></textarea>
                     </div>
                 </div>
                 <div class="mb-3">
                     <label class="form-label">Behavioral Notes</label>
-                    <textarea class="form-control dog-behavior" name="dog_{INDEX}_behavioral_notes" rows="2" 
-                            placeholder="Any behavioral concerns, triggers, or special needs"></textarea>
+                    <textarea class="form-control dog-behavior" name="dog_{INDEX}_behavioral_notes" rows="2"
+                        placeholder="Any behavioral concerns, triggers, or special needs"></textarea>
                 </div>
-
+    
                 <!-- VET INFORMATION SECTION -->
                 <hr>
-                <h6 class="text-primary mb-3"><i class="bi bi-plus-circle me-2"></i>Veterinary Information</h6>
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">Vet Practice Name *</label>
-                        <input type="text" class="form-control dog-vet-name" name="dog_{INDEX}_vet_name" 
-                            placeholder="e.g., Croyde Veterinary Surgery" required>
-                    </div>
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">Vet Phone Number *</label>
-                        <input type="tel" class="form-control dog-vet-phone" name="dog_{INDEX}_vet_phone" 
-                            placeholder="01271 890123" required>
+    
+                <!-- VET AUTO-FILL TOGGLE (For dogs after the first) -->
+                <div class="vet-autofill-notice alert alert-info" style="display: none;">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <i class="bi bi-info-circle me-2"></i>
+                            <strong>Same vet as Dog 1?</strong>
+                            <span class="text-muted">Toggle on to copy vet information from Dog 1</span>
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="sameVet_{INDEX}">
+                            <label class="form-check-label" for="sameVet_{INDEX}">Use same vet</label>
+                        </div>
                     </div>
                 </div>
-                <div class="mb-3">
-                    <label class="form-label">Vet Practice Address *</label>
-                    <textarea class="form-control dog-vet-address" name="dog_{INDEX}_vet_address" rows="2" 
+    
+                <h6 class="text-primary mb-3">
+                    <i class="bi bi-plus-circle me-2"></i>Veterinary Information
+                    <span class="text-muted vet-subtitle" style="display: none;">(for this specific dog)</span>
+                </h6>
+    
+                <div class="vet-fields">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Vet Practice Name *</label>
+                            <input type="text" class="form-control dog-vet-name vet-name" name="dog_{INDEX}_vet_name"
+                                placeholder="e.g., Croyde Veterinary Surgery" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Vet Phone Number *</label>
+                            <input type="tel" class="form-control dog-vet-phone vet-phone" name="dog_{INDEX}_vet_phone"
+                                placeholder="01271 890123" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Vet Practice Address *</label>
+                        <textarea class="form-control dog-vet-address vet-address" name="dog_{INDEX}_vet_address" rows="2"
                             placeholder="Full vet practice address" required></textarea>
+                    </div>
+                </div>
+    
+                <div class="text-muted small mt-2 vet-different-note" style="display: none;">
+                    <i class="bi bi-exclamation-triangle me-1"></i>
+                    <strong>Different vet?</strong> Uncheck "Use same vet" above to enter different veterinary details.
                 </div>
             </div>
         </div>

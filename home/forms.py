@@ -41,7 +41,7 @@ class GroupWalkForm(forms.ModelForm):
         # Updated help text for new time slots
         self.fields['number_of_dogs'].help_text = "Maximum 4 dogs per individual booking (group walk session limited to 4 dogs total)"
         self.fields['booking_date'].help_text = "Select from available dates in the calendar"
-        self.fields['time_slot'].help_text = "Available slots: 09:30 AM - 11:30 PM, 2:00 PM - 4:00 PM, or 6:00 PM - 8:00 PM"
+        self.fields['time_slot'].help_text = "Available slots: 09:30 AM - 11:30 AM, 2:00 PM - 4:00 PM, or 6:00 PM - 8:00 PM"
         self.fields['customer_postcode'].help_text = f"We serve: {', '.join(ALLOWED_POSTCODE_AREAS)} (within 10 miles of Croyde, North Devon)"
     
     def clean_booking_date(self):

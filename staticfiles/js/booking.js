@@ -182,6 +182,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         addRealTimeValidation();
+        initializeEnhancedValidation();
     }
     
     function loadGroupWalkFormContent() {
@@ -631,167 +632,682 @@ document.addEventListener('DOMContentLoaded', function() {
                     'X-Requested-With': 'XMLHttpRequest',
                 }
             });
-            
+
+            if (!response.ok) {
+                throw new Error(`Server error: ${response.status} ${response.statusText}`);
+            }
+
             const result = await response.json();
-            
+
             if (result.success) {
                 if (bookingMainContent) {
                     bookingMainContent.innerHTML = result.html;
                 }
-                
+
                 setTimeout(() => {
                     bookingMainContent.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 }, 100);
-                
             } else {
-                showFormErrors('group-walk-form', result.errors, result.message);
+                showDetailedFormErrors('group-walk-form', result.errors, result.message);
             }
         } catch (error) {
             console.error('Error submitting form:', error);
-            showGenericError('group-walk-form', 'An error occurred while submitting your booking. Please check your internet connection and try again.');
+
+            if (error.name === 'TypeError' || error.message.includes('NetworkError') || error.message.includes('Failed to fetch')) {
+                showTechnicalError('group-walk-form', 'network');
+            } else if (error.message.includes('Server error: 5')) {
+                showTechnicalError('group-walk-form', 'server');
+            } else if (error.message.includes('timeout')) {
+                showTechnicalError('group-walk-form', 'timeout');
+            } else {
+                showTechnicalError('group-walk-form', 'generic');
+            }
         }
     }
     
     // ===========================================
-    // DOG FORMS GENERATION
+    // ENHANCED DOG FORMS GENERATION WITH VET AUTO-FILL
     // ===========================================
-    
+
     function generateDogForms(numDogs, containerId) {
         const container = document.getElementById(containerId);
         if (!container) return;
-        
+
         container.innerHTML = '';
-        
+
         for (let i = 0; i < numDogs; i++) {
-            const dogForm = createDogForm(i);
+            const dogForm = createBasicDogForm(i);
             if (dogForm) container.appendChild(dogForm);
         }
-        
+
         addRealTimeValidation();
     }
-    
-    function createDogForm(index) {
-        const template = document.getElementById('dog-form-template');
-        if (!template) {
-            return createBasicDogForm(index);
-        }
-        
-        const clone = template.content.cloneNode(true);
-        
-        clone.querySelectorAll('input, textarea, select').forEach(field => {
-            if (field.name) {
-                field.name = field.name.replace('{INDEX}', index);
-            }
-            if (field.id) {
-                field.id = field.id.replace('{INDEX}', index);
-            }
-        });
-        
-        clone.querySelectorAll('label').forEach(label => {
-            if (label.getAttribute('for')) {
-                label.setAttribute('for', label.getAttribute('for').replace('{INDEX}', index));
-            }
-        });
-        
-        const dogNumber = clone.querySelector('.dog-number');
-        if (dogNumber) dogNumber.textContent = index + 1;
-        
-        if (index > 0) {
-            const removeBtn = clone.querySelector('.remove-dog-btn');
-            if (removeBtn) {
-                removeBtn.style.display = 'block';
-                removeBtn.addEventListener('click', function() {
-                    this.closest('.dog-form').remove();
-                });
-            }
-        }
-        
-        return clone;
-    }
-    
+
+    // function createDogForm(index) {
+    //     const template = document.getElementById('dog-form-template');
+    //     if (!template) {
+    //         return createBasicDogForm(index);
+    //     }
+
+    //     const clone = template.content.cloneNode(true);
+    //     const isFirstDog = index === 0;
+
+    //     // Replace {INDEX} placeholders with actual index
+    //     clone.querySelectorAll('input, textarea, select').forEach(field => {
+    //         if (field.name) {
+    //             field.name = field.name.replace('{INDEX}', index);
+    //         }
+    //         if (field.id) {
+    //             field.id = field.id.replace('{INDEX}', index);
+    //         }
+    //     });
+
+    //     clone.querySelectorAll('label').forEach(label => {
+    //         if (label.getAttribute('for')) {
+    //             label.setAttribute('for', label.getAttribute('for').replace('{INDEX}', index));
+    //         }
+    //     });
+
+    //     // Update dog number
+    //     const dogNumber = clone.querySelector('.dog-number');
+    //     if (dogNumber) dogNumber.textContent = index + 1;
+
+    //     // Show/hide vet auto-fill toggle based on dog index
+    //     const vetNotice = clone.querySelector('.vet-autofill-notice');
+    //     const vetSubtitle = clone.querySelector('.vet-subtitle');
+    //     const vetDifferentNote = clone.querySelector('.vet-different-note');
+
+    //     if (!isFirstDog) {
+    //         // Show toggle and additional elements for dogs after the first
+    //         if (vetNotice) vetNotice.style.display = 'block';
+    //         if (vetSubtitle) vetSubtitle.style.display = 'inline';
+    //         if (vetDifferentNote) vetDifferentNote.style.display = 'block';
+    //     } else {
+    //         // Hide toggle for first dog
+    //         if (vetNotice) vetNotice.style.display = 'none';
+    //         if (vetSubtitle) vetSubtitle.style.display = 'none';
+    //         if (vetDifferentNote) vetDifferentNote.style.display = 'none';
+    //     }
+
+    //     // Handle remove button
+    //     if (index > 0) {
+    //         const removeBtn = clone.querySelector('.remove-dog-btn');
+    //         if (removeBtn) {
+    //             removeBtn.style.display = 'block';
+    //             removeBtn.addEventListener('click', function () {
+    //                 this.closest('.dog-form').remove();
+    //             });
+    //         }
+    //     }
+
+    //     // Convert DocumentFragment to actual DOM element
+    //     const dogFormDiv = document.createElement('div');
+    //     dogFormDiv.appendChild(clone);
+    //     const actualDogForm = dogFormDiv.firstElementChild;
+
+    //     // Add vet auto-fill functionality for non-first dogs
+    //     if (!isFirstDog) {
+    //         const sameVetCheckbox = actualDogForm.querySelector(`#sameVet_${index}`);
+    //         const vetFields = actualDogForm.querySelectorAll('.vet-fields input, .vet-fields textarea');
+
+    //         if (sameVetCheckbox) {
+    //             // Initially enable vet fields since toggle is off by defualt
+    //             updateVetFields(vetFields, false);
+
+    //             sameVetCheckbox.addEventListener('change', function () {
+    //                 const useSameVet = this.checked;
+    //                 updateVetFields(vetFields, !useSameVet);
+
+    //                 if (useSameVet) {
+    //                     // Copy vet info from first dog
+    //                     copyVetInfoFromFirstDog(index);
+    //                 } else {
+    //                     // Clear fields for manual entry
+    //                     clearVetFields(vetFields);
+    //                 }
+    //             });
+
+    //             // Auto-fill initially if same vet is checked
+    //             // setTimeout(() => copyVetInfoFromFirstDog(index), 100);
+    //         }
+    //     }
+
+    //     return actualDogForm;
+    // }
+
     function createBasicDogForm(index) {
         const dogFormDiv = document.createElement('div');
         dogFormDiv.className = 'dog-form card mb-3';
+
+        // Check if this is the first dog (index 0) or subsequent dogs
+        const isFirstDog = index === 0;
+        const vetSectionClass = isFirstDog ? '' : 'vet-section-autofill';
+
         dogFormDiv.innerHTML = `
-            <div class="card-header">
-                <div class="d-flex justify-content-between align-items-center">
-                    <h6 class="mb-0">Dog ${index + 1} Details</h6>
-                    ${index > 0 ? '<button type="button" class="btn btn-outline-danger btn-sm remove-dog-btn"><i class="bi bi-trash"></i> Remove</button>' : ''}
+        <div class="card-header">
+            <div class="d-flex justify-content-between align-items-center">
+                <h6 class="mb-0">Dog ${index + 1} Details</h6>
+                ${index > 0 ? '<button type="button" class="btn btn-outline-danger btn-sm remove-dog-btn"><i class="bi bi-trash"></i> Remove</button>' : ''}
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Dog's Name *</label>
+                    <input type="text" class="form-control" name="dog_${index}_name" required>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Breed *</label>
+                    <input type="text" class="form-control" name="dog_${index}_breed" required>
                 </div>
             </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">Dog's Name *</label>
-                        <input type="text" class="form-control" name="dog_${index}_name" required>
-                    </div>
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">Breed *</label>
-                        <input type="text" class="form-control" name="dog_${index}_breed" required>
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Age (years) *</label>
+                    <input type="number" class="form-control" name="dog_${index}_age" min="0" max="25" required>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <div class="form-check mt-4">
+                        <input type="checkbox" class="form-check-input" name="dog_${index}_good_with_other_dogs" checked>
+                        <label class="form-check-label">Good with other dogs</label>
                     </div>
                 </div>
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">Age (years) *</label>
-                        <input type="number" class="form-control" name="dog_${index}_age" min="0" max="25" required>
-                    </div>
-                    <div class="col-md-6 mb-3">
-                        <div class="form-check mt-4">
-                            <input type="checkbox" class="form-check-input" name="dog_${index}_good_with_other_dogs" checked>
-                            <label class="form-check-label">Good with other dogs</label>
+            </div>
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Allergies/Health Concerns</label>
+                    <textarea class="form-control" name="dog_${index}_allergies" rows="2" 
+                            placeholder="Any medical conditions we should know about"></textarea>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Special Instructions</label>
+                    <textarea class="form-control" name="dog_${index}_special_instructions" rows="2" 
+                            placeholder="Special care or handling instructions"></textarea>
+                </div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Behavioral Notes</label>
+                <textarea class="form-control" name="dog_${index}_behavioral_notes" rows="2" 
+                        placeholder="Any behavioral concerns, triggers, or special needs"></textarea>
+            </div>
+            <hr>
+            
+            <!-- VET INFORMATION SECTION -->
+            <div class="vet-info-section ${vetSectionClass}">
+                ${!isFirstDog ? `
+                <div class="alert alert-info vet-autofill-notice">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <i class="bi bi-info-circle me-2"></i>
+                            <strong>Same vet as Dog 1?</strong> 
+                            <span class="text-muted">Most customers use the same vet for all their dogs</span>
+                        </div>
+                        <div id="vet-control-${index}">
+                            <!-- Initially show the toggle -->
+                            <div class="form-check form-switch" id="toggle-container-${index}">
+                                <input class="form-check-input" type="checkbox" id="sameVet_${index}">
+                                <label class="form-check-label" for="sameVet_${index}">Use same vet</label>
+                            </div>
+                            <!-- Clear button (initially hidden) -->
+                            <button type="button" class="btn btn-outline-warning btn-sm" id="clear-vet-${index}" style="display: none;">
+                                <i class="bi bi-trash"></i> Clear & Enter Different Vet
+                            </button>
                         </div>
                     </div>
                 </div>
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">Allergies/Health Concerns</label>
-                        <textarea class="form-control" name="dog_${index}_allergies" rows="2" 
-                                placeholder="Any medical conditions we should know about"></textarea>
+                ` : ''}
+                
+                <h6 class="text-primary mb-3">
+                    <i class="bi bi-plus-circle me-2"></i>Veterinary Information
+                    ${!isFirstDog ? '<span class="text-muted">(for this specific dog)</span>' : ''}
+                </h6>
+                
+                <div class="vet-fields">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Vet Practice Name *</label>
+                            <input type="text" class="form-control vet-name" name="dog_${index}_vet_name" 
+                                placeholder="e.g., Croyde Veterinary Surgery" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Vet Phone Number *</label>
+                            <input type="tel" class="form-control vet-phone" name="dog_${index}_vet_phone" 
+                                placeholder="01271 890123" required>
+                        </div>
                     </div>
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">Special Instructions</label>
-                        <textarea class="form-control" name="dog_${index}_special_instructions" rows="2" 
-                                placeholder="Special care or handling instructions"></textarea>
-                    </div>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Behavioral Notes</label>
-                    <textarea class="form-control" name="dog_${index}_behavioral_notes" rows="2" 
-                            placeholder="Any behavioral concerns, triggers, or special needs"></textarea>
-                </div>
-                <hr>
-                <h6 class="text-primary mb-3"><i class="bi bi-plus-circle me-2"></i>Veterinary Information</h6>
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">Vet Practice Name *</label>
-                        <input type="text" class="form-control" name="dog_${index}_vet_name" 
-                            placeholder="e.g., Croyde Veterinary Surgery" required>
-                    </div>
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">Vet Phone Number *</label>
-                        <input type="tel" class="form-control" name="dog_${index}_vet_phone" 
-                            placeholder="01271 890123" required>
+                    <div class="mb-3">
+                        <label class="form-label">Vet Practice Address *</label>
+                        <textarea class="form-control vet-address" name="dog_${index}_vet_address" rows="2" 
+                                placeholder="Full vet practice address" required></textarea>
                     </div>
                 </div>
-                <div class="mb-3">
-                    <label class="form-label">Vet Practice Address *</label>
-                    <textarea class="form-control" name="dog_${index}_vet_address" rows="2" 
-                            placeholder="Full vet practice address" required></textarea>
+                
+                ${!isFirstDog ? `
+                <div class="text-muted small mt-2">
+                    <i class="bi bi-exclamation-triangle me-1"></i>
+                    <strong>Different vet?</strong> Uncheck "Use same vet" above to enter different veterinary details.
                 </div>
+                ` : ''}
             </div>
-        `;
-        
+        </div>
+    `;
+
+        // Add event listeners for vet auto-fill functionality
+        if (!isFirstDog) {
+            const sameVetCheckbox = dogFormDiv.querySelector(`#sameVet_${index}`);
+            const clearVetButton = dogFormDiv.querySelector(`#clear-vet-${index}`);
+            const toggleContainer = dogFormDiv.querySelector(`#toggle-container-${index}`);
+            const vetFields = dogFormDiv.querySelectorAll('.vet-fields input, .vet-fields textarea');
+
+            // Initially set up fields based on checkbox state
+            const isInitiallyChecked = sameVetCheckbox.checked;
+            updateVetFields(vetFields, isInitiallyChecked);
+
+            // Toggle event handler
+            sameVetCheckbox.addEventListener('change', function () {
+                const useSameVet = this.checked;
+
+                if (useSameVet) {
+                    updateVetFields(vetFields, true);
+                    copyVetInfoFromFirstDog(index);
+
+                    // Show clear button, hide toggle
+                    setTimeout(() => {
+                        toggleContainer.style.display = 'none';
+                        clearVetButton.style.display = 'block';
+                    }, 500);
+                }
+            });
+
+            // Clear button event handler
+            clearVetButton.addEventListener('click', function () {
+                // Clear all fields
+                vetFields.forEach(field => {
+                    field.value = '';
+                    field.disabled = false;
+                    field.classList.remove('auto-filled');
+                    field.style.backgroundColor = '';
+                    field.style.color = '';
+                    field.style.borderColor = '';
+                });
+
+                // Show toggle again, hide clear button
+                clearVetButton.style.display = 'none';
+                toggleContainer.style.display = 'block';
+
+                // Reset toggle to unchecked state
+                sameVetCheckbox.checked = false;
+
+                // Focus first field
+                setTimeout(() => {
+                    if (vetFields[0]) {
+                        vetFields[0].focus();
+                    }
+                }, 100);
+            });
+
+            // Auto-fill initially if checkbox is checked
+            if (isInitiallyChecked) {
+                setTimeout(() => {
+                    copyVetInfoFromFirstDog(index);
+                    // Show clear button after initial auto-fill
+                    setTimeout(() => {
+                        toggleContainer.style.display = 'none';
+                        clearVetButton.style.display = 'block';
+                    }, 500);
+                }, 100);
+            } else {
+                // If checkbox is unchecked initially, make sure fields are properly enabled.
+                updateVetFields(vetFields, false)
+            }
+        }
+
+
+        // Remove button functionality
         if (index > 0) {
             const removeBtn = dogFormDiv.querySelector('.remove-dog-btn');
             if (removeBtn) {
-                removeBtn.addEventListener('click', function() {
+                removeBtn.addEventListener('click', function () {
                     dogFormDiv.remove();
                 });
             }
         }
-        
+
         return dogFormDiv;
     }
+
+    function updateVetFields(vetFields, disable) {
+        let focusApplied = false;
+
+        vetFields.forEach(field => {
+            field.disabled = disable;
+            if (disable) {
+                // Auto-filled state - add blue highlighting
+                field.style.backgroundColor = '#e3f2fd';
+                field.style.color = '#1565c0';
+                field.style.borderColor = '#2196f3';
+                field.classList.add('auto-filled');
+            } else {
+                // Manual entry state - remove highlighting
+                field.style.backgroundColor = '';
+                field.style.color = '';
+                field.style.borderColor = '';
+                field.classList.remove('auto-filled');
+                
+                if (!focusApplied) {
+                    setTimeout(() => field.focus(), 100);
+                    focusApplied = true;
+                }
+            }
+        });
+    }
+
+    function copyVetInfoFromFirstDog(targetIndex) {
+        // Get vet info from first dog (index 0)
+        const firstDogVetName = document.querySelector('[name="dog_0_vet_name"]');
+        const firstDogVetPhone = document.querySelector('[name="dog_0_vet_phone"]');
+        const firstDogVetAddress = document.querySelector('[name="dog_0_vet_address"]');
+
+        if (!firstDogVetName || !firstDogVetPhone || !firstDogVetAddress) {
+            return;
+        }
+
+        // Set vet info for target dog
+        const targetVetName = document.querySelector(`[name="dog_${targetIndex}_vet_name"]`);
+        const targetVetPhone = document.querySelector(`[name="dog_${targetIndex}_vet_phone"]`);
+        const targetVetAddress = document.querySelector(`[name="dog_${targetIndex}_vet_address"]`);
+
+        if (targetVetName && targetVetPhone && targetVetAddress) {
+            targetVetName.value = firstDogVetName.value;
+            targetVetPhone.value = firstDogVetPhone.value;
+            targetVetAddress.value = firstDogVetAddress.value;
+
+            // Add blue highlighting to show these are auto-filled
+            [targetVetName, targetVetPhone, targetVetAddress].forEach(field => {
+                field.classList.add('auto-filled');
+                field.dispatchEvent(new Event('change', { bubbles: true }));
+            });
+        }
+    }
+
+    function clearVetFields(vetFields) {
+        vetFields.forEach(field => {
+            field.value = '';
+            field.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+    }
+
+    // // Listen for changes to first dog's vet info to auto-update other dogs
+    // document.addEventListener('change', function (e) {
+    //     if (e.target.name && e.target.name.startsWith('dog_0_vet_')) {
+    //         // First dog's vet info changed, update all other dogs using same vet
+    //         updateAllDogsWithSameVet();
+    //     }
+    // });
+
+    function updateAllDogsWithSameVet() {
+        const sameVetCheckboxes = document.querySelectorAll('[id^="sameVet_"]');
+
+        sameVetCheckboxes.forEach(checkbox => {
+            if (checkbox.checked) {
+                const dogIndex = checkbox.id.split('_')[1];
+                copyVetInfoFromFirstDog(dogIndex);
+            }
+        });
+    }
+
+    // ===========================================
+    // ENHANCED VALIDATION FOR "SAME" ENTRIES
+    // ===========================================
+
+    function validateDogForms() {
+        let hasErrors = false;
+        const problemFields = [];
+
+        // Get all dog forms
+        const dogForms = document.querySelectorAll('.dog-form');
+
+        dogForms.forEach((dogForm, index) => {
+            const vetFields = {
+                name: dogForm.querySelector('[name^="dog_"][name$="_vet_name"]'),
+                phone: dogForm.querySelector('[name^="dog_"][name$="_vet_phone"]'),
+                address: dogForm.querySelector('[name^="dog_"][name$="_vet_address"]')
+            };
+
+            // Check for "same" entries in vet fields
+            Object.entries(vetFields).forEach(([fieldType, field]) => {
+                if (field && field.value) {
+                    const value = field.value.toLowerCase().trim();
+
+                    // Check for variations of "same"
+                    const sameVariations = [
+                        'same', 'same as above', 'same as before', 'same as first',
+                        'same as dog 1', 'same vet', 'as above', 'ditto', '"',
+                        'see above', 'as before', 'identical', '^^', '^',
+                        'same practice', 'same clinic', 'duplicate'
+                    ];
+
+                    if (sameVariations.some(variation => value === variation || value.includes(variation))) {
+                        // Mark field as invalid
+                        field.classList.add('invalid-same-entry');
+                        field.classList.remove('is-invalid'); // Remove standard invalid class
+
+                        // Remove existing warning
+                        const existingWarning = field.parentNode.querySelector('.same-entry-warning');
+                        if (existingWarning) existingWarning.remove();
+
+                        // Add custom warning message
+                        const warningDiv = document.createElement('div');
+                        warningDiv.className = 'same-entry-warning';
+                        warningDiv.innerHTML = `Please enter the actual ${fieldType === 'name' ? 'vet practice name' : fieldType === 'phone' ? 'phone number' : 'address'} - we need complete information for emergencies`;
+
+                        field.parentNode.insertBefore(warningDiv, field.nextSibling);
+
+                        hasErrors = true;
+                        problemFields.push(`Dog ${index + 1} - Vet ${fieldType}`);
+                    } else {
+                        // Remove warning if field is now valid
+                        field.classList.remove('invalid-same-entry');
+                        const existingWarning = field.parentNode.querySelector('.same-entry-warning');
+                        if (existingWarning) existingWarning.remove();
+                    }
+                }
+            });
+        });
+
+        return { valid: !hasErrors, problemFields };
+    }
+
+    // Enhanced form submission validation
+    function validateAllDogFormsBeforeSubmit() {
+        const validation = validateDogForms();
+
+        if (!validation.valid) {
+            // Show comprehensive error message
+            const errorAlert = document.createElement('div');
+            errorAlert.className = 'alert alert-warning error-message';
+            errorAlert.innerHTML = `
+            <h6><i class="bi bi-exclamation-triangle-fill me-2"></i>Please Complete Vet Information</h6>
+            <p class="mb-2">We found some fields marked as "same" - please enter the actual veterinary details:</p>
+            <ul class="mb-2">
+                ${validation.problemFields.map(field => `<li>${field}</li>`).join('')}
+            </ul>
+            <div class="alert alert-info mt-3 mb-0">
+                <strong>Tip:</strong> If all your dogs use the same vet, use the toggle switch to auto-fill the information instead of typing "same"!
+            </div>
+        `;
+
+            // Insert at top of form
+            const form = document.getElementById('group-walk-form') || document.getElementById('individual-walk-form');
+            if (form) {
+                // Remove any existing error alerts
+                const existingAlerts = form.querySelectorAll('.alert.error-message');
+                existingAlerts.forEach(alert => alert.remove());
+
+                form.insertBefore(errorAlert, form.firstChild);
+
+                // Scroll to error
+                errorAlert.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+                // Remove alert after 15 seconds
+                setTimeout(() => {
+                    if (errorAlert.parentNode) {
+                        errorAlert.remove();
+                    }
+                }, 15000);
+            }
+
+            return false;
+        }
+
+        return true;
+    }
+
+    // Real-time validation as user types
+    function addRealTimeVetValidation() {
+        document.addEventListener('input', function (e) {
+            if (e.target.name && e.target.name.includes('_vet_')) {
+                const value = e.target.value.toLowerCase().trim();
+                const sameVariations = [
+                    'same', 'as above', 'ditto', '"', 'see above',
+                    'as before', 'identical', '^^', '^'
+                ];
+
+                if (sameVariations.some(variation => value.includes(variation))) {
+                    // Show immediate feedback
+                    e.target.classList.add('invalid-same-entry');
+                    e.target.classList.remove('is-invalid');
+
+                    // Remove existing hint
+                    const existingHint = e.target.parentNode.querySelector('.same-entry-hint');
+                    if (existingHint) existingHint.remove();
+
+                    // Show tooltip or inline message
+                    const hint = document.createElement('div');
+                    hint.className = 'same-entry-hint text-muted small mt-1';
+                    hint.innerHTML = '<i class="bi bi-lightbulb me-1"></i>Tip: Use the "Same vet" toggle above to auto-fill this information!';
+                    e.target.parentNode.insertBefore(hint, e.target.nextSibling);
+
+                    // Remove hint after 8 seconds
+                    setTimeout(() => {
+                        if (hint.parentNode) hint.remove();
+                    }, 8000);
+                } else {
+                    e.target.classList.remove('invalid-same-entry');
+                    const hint = e.target.parentNode.querySelector('.same-entry-hint');
+                    if (hint) hint.remove();
+                }
+            }
+        });
+    }
+
+    // Enhanced form submission handlers with validation
+    function enhancedHandleGroupFormSubmit(e) {
+        e.preventDefault();
+
+        // First validate for "same" entries
+        if (!validateAllDogFormsBeforeSubmit()) {
+            return; // Stop submission if validation fails
+        }
+
+        // Continue with existing validation...
+        if (selectedSlots.length === 0) {
+            showGenericError('group-walk-form', 'Please select at least one time slot.');
+            return;
+        }
+
+        // Rest of existing submission logic...
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        const loadingText = isMultiBookingMode && selectedSlots.length > 1
+            ? `<span class="spinner-border spinner-border-sm me-2"></span>Processing ${selectedSlots.length} bookings...`
+            : '<span class="spinner-border spinner-border-sm me-2"></span>Processing...';
+
+        submitBtn.innerHTML = loadingText;
+        submitBtn.disabled = true;
+
+        submitGroupWalkForm().finally(() => {
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+        });
+    }
+
+    function enhancedHandleIndividualFormSubmit(e) {
+        e.preventDefault();
+
+        // First validate for "same" entries
+        if (!validateAllDogFormsBeforeSubmit()) {
+            return; // Stop submission if validation fails
+        }
+
+        // Continue with existing individual form submission logic...
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Submitting...';
+        submitBtn.disabled = true;
+
+        submitIndividualWalkForm().finally(() => {
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+        });
+    }
+
+    // Function to manually trigger validation (useful for testing)
+    function triggerVetValidation() {
+        const validation = validateDogForms();
+        console.log('Validation results:', validation);
+        return validation;
+    }
+
+    // Initialize enhanced validation when forms are loaded
+    function initializeEnhancedValidation() {
+        // Add real-time validation
+        addRealTimeVetValidation();
+
+        // Replace existing form submission handlers with enhanced versions
+        const groupForm = document.getElementById('group-walk-form');
+        if (groupForm) {
+            // Remove existing listener
+            groupForm.removeEventListener('submit', handleGroupFormSubmit);
+            // Add enhanced listener
+            groupForm.addEventListener('submit', enhancedHandleGroupFormSubmit);
+        }
+
+        const individualForm = document.getElementById('individual-walk-form');
+        if (individualForm) {
+            // Remove existing listener  
+            individualForm.removeEventListener('submit', handleIndividualFormSubmit);
+            // Add enhanced listener
+            individualForm.addEventListener('submit', enhancedHandleIndividualFormSubmit);
+        }
+    }
+
+    // Validation for specific common problematic entries
+    function detectProblematicEntries(value) {
+        const problematicPatterns = [
+            /^same$/i,
+            /^"$/,
+            /^ditto$/i,
+            /^as above$/i,
+            /^see above$/i,
+            /^same as/i,
+            /^identical$/i,
+            /^\^+$/,
+            /same vet/i,
+            /same clinic/i,
+            /same practice/i
+        ];
+
+        return problematicPatterns.some(pattern => pattern.test(value.trim()));
+    }
+
+    // Export validation functions for external use
+    window.bookingValidation = {
+        validateDogForms,
+        validateAllDogFormsBeforeSubmit,
+        triggerVetValidation,
+        detectProblematicEntries
+    };
     
     // ===========================================
     // INDIVIDUAL WALK FORM HANDLERS
@@ -827,6 +1343,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         addRealTimeValidation();
+        initializeEnhancedValidation();
     }
     
     function loadBasicIndividualForm() {
@@ -861,8 +1378,6 @@ document.addEventListener('DOMContentLoaded', function() {
                             <option value="2">2 Dogs</option>
                             <option value="3">3 Dogs</option>
                             <option value="4">4 Dogs</option>
-                            <option value="5">5 Dogs</option>
-                            <option value="6">6 Dogs</option>
                         </select>
                     </div>
                 </div>
@@ -1020,6 +1535,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             });
 
+            if (!response.ok) {
+                throw new Error(`Server error: ${response.status} ${response.statusText}`);
+            }
+
             const result = await response.json();
 
             if (result.success) {
@@ -1032,18 +1551,172 @@ document.addEventListener('DOMContentLoaded', function() {
                 }, 100);
                 
             } else {
-                showFormErrors('individual-walk-form', result.errors, result.message);
+                showDetailedFormErrors('individual-walk-form', result.errors, result.message);
             }
         } catch (error) {
-            console.error('Network error:', error);
-            showGenericError('individual-walk-form', 'An error occurred while submitting your request. Please check your internet connection and try again.');
+            console.error('Error submitting form:', error);
+
+            if (error.name === 'TypeError' || error.message.includes('NetworkError') || error.message.includes('Failed to fetch')) {
+                showTechnicalError('individual-walk-form', 'network');
+            } else if (error.message.includes('Server error: 5')) {
+                showTechnicalError('individual-walk-form', 'server');
+            } else if (error.message.includes('timeout')) {
+                showTechnicalError('individual-walk-form', 'timeout');
+            } else {
+                showTechnicalError('individual-walk-form', 'generic');
+            }
         }
     }
     
     // ===========================================
     // ERROR HANDLING AND VALIDATION
     // ===========================================
-    
+
+    function showDetailedFormErrors(formId, errors, message) {
+        document.querySelectorAll('.error-message').forEach(el => el.remove());
+        document.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+
+        const form = document.getElementById(formId);
+        if (!form) return;
+
+        let hasFieldErrors = false;
+        let errorSummary = [];
+
+        if (errors && typeof errors === 'object') {
+            Object.keys(errors).forEach(fieldName => {
+                let fieldErrors = errors[fieldName];
+
+                // Convert to string and clean up the messy formatting
+                let errorText = '';
+                if (Array.isArray(fieldErrors)) {
+                    errorText = fieldErrors.join(' ').toString();
+                } else {
+                    errorText = fieldErrors.toString();
+                }
+
+                // Remove all the messy brackets and quotes
+                errorText = errorText.replace(/^\["|"\]$/g, '');
+                errorText = errorText.replace(/^\[|\]$/g, '');
+                errorText = errorText.replace(/^"|"$/g, '');
+
+                // If the error contains the field name already, extract just the message
+                if (errorText.includes(':')) {
+                    const parts = errorText.split(':');
+                    if (parts.length > 1) {
+                        errorText = parts.slice(1).join(':').trim();
+                    }
+                }
+
+                let field = null;
+                let displayFieldName = fieldName;
+
+                if (fieldName === 'general') {
+                    errorSummary.push(errorText);
+                    return;
+                } else if (fieldName.startsWith('dog_')) {
+                    field = form.querySelector(`[name="${fieldName}"]`);
+                    const parts = fieldName.split('_');
+                    if (parts.length >= 3) {
+                        const dogNum = parseInt(parts[1]) + 1;
+                        const fieldType = parts.slice(2).join('_').replace(/_/g, ' ');
+                        displayFieldName = `Dog ${dogNum} ${fieldType}`;
+                    }
+                } else {
+                    field = form.querySelector(`[name="${fieldName}"]`);
+                    displayFieldName = fieldName.replace('customer_', '').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                }
+
+                if (field) {
+                    field.classList.add('is-invalid');
+                    hasFieldErrors = true;
+
+                    const errorDiv = document.createElement('div');
+                    errorDiv.className = 'invalid-feedback error-message';
+                    errorDiv.textContent = errorText;
+                    field.parentNode.insertBefore(errorDiv, field.nextSibling);
+                }
+
+                errorSummary.push(`${displayFieldName}: ${errorText}`);
+            });
+        }
+
+        const alert = document.createElement('div');
+        alert.className = 'alert alert-danger error-message mt-3';
+
+        let alertContent = '<div class="d-flex align-items-start">';
+        alertContent += '<i class="bi bi-exclamation-triangle-fill me-2 text-danger" style="font-size: 1.2em; margin-top: 2px;"></i>';
+        alertContent += '<div>';
+
+        if (hasFieldErrors) {
+            alertContent += '<h6 class="mb-2">Please correct the following issues:</h6>';
+            alertContent += '<ul class="mb-0 ps-3">';
+            errorSummary.forEach(error => {
+                alertContent += `<li>${error}</li>`;
+            });
+            alertContent += '</ul>';
+        } else if (message) {
+            alertContent += `<h6 class="mb-1">Booking Error</h6><p class="mb-0">${message}</p>`;
+        } else {
+            alertContent += '<h6 class="mb-1">Validation Error</h6><p class="mb-0">Please check your information and try again.</p>';
+        }
+
+        alertContent += '</div></div>';
+        alert.innerHTML = alertContent;
+
+        form.insertBefore(alert, form.firstChild);
+
+        const firstError = document.querySelector('.is-invalid') || alert;
+        if (firstError) {
+            firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }
+
+    function showTechnicalError(formId, errorType) {
+        const form = document.getElementById(formId);
+        if (!form) return;
+
+        document.querySelectorAll('.error-message').forEach(el => el.remove());
+
+        const alert = document.createElement('div');
+        alert.className = 'alert alert-warning error-message mt-3';
+
+        let alertContent = '<div class="d-flex align-items-start">';
+        alertContent += '<i class="bi bi-exclamation-triangle-fill me-2 text-warning" style="font-size: 1.2em; margin-top: 2px;"></i>';
+        alertContent += '<div>';
+
+        switch (errorType) {
+            case 'network':
+                alertContent += '<h6 class="mb-1">Connection Problem</h6>';
+                alertContent += '<p class="mb-2">Unable to connect to our booking system. This could be due to:</p>';
+                alertContent += '<ul class="mb-2 ps-3"><li>Poor internet connection</li><li>Temporary network issues</li><li>Browser blocking the request</li></ul>';
+                alertContent += '<p class="mb-0"><strong>What to try:</strong> Check your internet connection and try again, or contact us directly at <a href="mailto:alex@caninecompadre.co.uk">alex@caninecompadre.co.uk</a></p>';
+                break;
+            case 'server':
+                alertContent += '<h6 class="mb-1">Server Technical Difficulties</h6>';
+                alertContent += '<p class="mb-2">Our booking system is experiencing technical difficulties. This is temporary and not related to your booking information.</p>';
+                alertContent += '<p class="mb-0"><strong>What to try:</strong> Please wait a few minutes and try again, or contact us directly at <a href="mailto:alex@caninecompadre.co.uk">alex@caninecompadre.co.uk</a></p>';
+                break;
+            case 'timeout':
+                alertContent += '<h6 class="mb-1">Request Timeout</h6>';
+                alertContent += '<p class="mb-2">Your booking request took too long to process. This could be due to high demand or slow connection.</p>';
+                alertContent += '<p class="mb-0"><strong>What to try:</strong> Please try again with a stable internet connection, or contact us directly at <a href="mailto:alex@caninecompadre.co.uk">alex@caninecompadre.co.uk</a></p>';
+                break;
+            default:
+                alertContent += '<h6 class="mb-1">Technical Difficulties</h6>';
+                alertContent += '<p class="mb-2">We\'re experiencing unexpected technical issues that are preventing your booking from being processed.</p>';
+                alertContent += '<p class="mb-0"><strong>What to try:</strong> Please refresh the page and try again, or contact us directly at <a href="mailto:alex@caninecompadre.co.uk">alex@caninecompadre.co.uk</a></p>';
+        }
+
+        alertContent += '<div class="mt-3">';
+        alertContent += '<button class="btn btn-outline-primary btn-sm me-2" onclick="window.location.reload()"><i class="bi bi-arrow-clockwise me-1"></i>Refresh Page</button>';
+        alertContent += '<a href="mailto:alex@caninecompadre.co.uk" class="btn btn-outline-success btn-sm"><i class="bi bi-envelope me-1"></i>Email Us Instead</a>';
+        alertContent += '</div></div></div>';
+        alert.innerHTML = alertContent;
+
+        form.insertBefore(alert, form.firstChild);
+        alert.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
     function showFormErrors(formId, errors, message) {
         document.querySelectorAll('.error-message').forEach(el => el.remove());
         document.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));

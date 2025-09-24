@@ -307,6 +307,21 @@ p {
     animation: fadeIn 0.3s ease-in;
 }
 
+/* Auto-filled field styling */
+.vet-fields input.auto-filled,
+.vet-fields textarea.auto-filled {
+    background-color: #e3f2fd ; /* Light blue background */
+    border-color: #2196f3; /* Blue border */
+    color: #1565c0; /* Darker blue text */
+}
+
+.vet-fields input.auto-filled:focus,
+.vet-fields textarea.auto-filled:focus {
+    background-color: #e3f2fd;
+    border-color: #1976d2;
+    box-shadow: 0 0 0 0.2rem rgba(33, 150, 243, 0.25);
+}
+
 .evening-slot {
     border-left: 4px solid #6f42c1 !important;
 }

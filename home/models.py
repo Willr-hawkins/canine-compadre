@@ -247,7 +247,7 @@ class GroupWalk(BaseBooking):
         return bool(self.batch_id)
     
     @property
-    def batch_sixe(self):
+    def batch_size(self):
         """ Get total number of bookings in this batch """
         if not self.batch_id:
             return 1
