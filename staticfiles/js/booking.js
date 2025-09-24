@@ -2,20 +2,44 @@
 
 // GLOBAL UTILITY FUNCTIONS (AVAILABLE EVERYWHERE)
 function getCSRFToken() {
+    // Method 1: Look for CSRF token in forms
     const cookieCSRF = document.querySelector('[name=csrfmiddlewaretoken]');
     if (cookieCSRF) return cookieCSRF.value;
-    
+
+    // Method 2: Look for meta tag
     const metaCSRF = document.querySelector('meta[name="csrf-token"]');
     if (metaCSRF) return metaCSRF.getAttribute('content');
-    
+
+    // Method 3: Parse cookies (Safari-friendly)
     const cookies = document.cookie.split(';');
     for (let cookie of cookies) {
         const [name, value] = cookie.trim().split('=');
         if (name === 'csrftoken') {
-            return value;
+            return decodeURIComponent(value);
         }
     }
+
+    // Method 4: Check Django's default cookie name
+    const csrfCookie = getCookie('csrftoken');
+    if (csrfCookie) return csrfCookie;
+
     return '';
+}
+
+// Helper function for cookie parsing
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
 }
 
 function validateEmail(email) {

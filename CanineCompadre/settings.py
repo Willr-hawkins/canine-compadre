@@ -45,6 +45,12 @@ CSRF_TRUSTED_ORIGINS = [
     'https://www.caninecompadre.co.uk',
 ]
 
+# CSRF settings for better Safari compatibility
+CSRF_COOKIE_SECURE = True if not DEBUG else False
+CSRF_COOKIE_HTTPONLY = False  # Allow JavaScript access
+CSRF_COOKIE_SAMESITE = 'Lax'  # Less restrictive than 'Strict'
+CSRF_COOKIE_NAME = 'csrftoken'  # Make sure this is explicit
+
 # Application definition
 
 INSTALLED_APPS = [
