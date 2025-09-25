@@ -1,5 +1,5 @@
 html {
-    scroll-snap-type: y proximity;
+    /* scroll-snap-type: y mandatory; */
     height: auto;
     min-height: 100vh;
 }
@@ -7,6 +7,8 @@ html {
 body {
     background-image: url(../images/canine-compadre-background.png);
     min-height: 100vh;
+    margin: 0;
+    padding: 0;
 }
 
 p {
@@ -14,19 +16,22 @@ p {
 }
 
 .scroll-container {
-    scroll-snap-type: y mandatory;
+    /* scroll-snap-type: y mandatory; */
     overflow-y: scroll;
     scroll-behavior: smooth;
     height: 100vh;
 }
 
 .snap-section {
-    min-height: 100vh !important;
-    padding-top: 120px !important;
+    min-height: 100vh;
+    padding: 120px 0 80px 0; /* top padding for navbar, bottom padding for spacing */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
     box-sizing: border-box;
-    margin-bottom: 2.5rem;
-    scroll-snap-align: start;
-    scroll-snap-stop: normal;
+    /* scroll-snap-align: center; */
+    /* scroll-snap-stop: always; */
 }
 
 /* NavBar */
@@ -213,10 +218,28 @@ p {
     transition: all 0.3s ease;
     border-width: 2px;
     color: #F5EFE0;
+    min-height: 120px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 15px 10px;
+    text-align: center;
+    line-height: 1.2;
+}
+
+.booking-type-btn i {
+    margin-bottom: 8px;
+}
+
+.booking-type-btn strong {
+    font-size: 0.95rem;
+    margin-bottom: 5px;
 }
 
 .booking-type-btn small {
     color: #F5EFE0 !important;
+    font-size: 0.8rem;
 }
 
 .booking-type-btn:hover {
@@ -373,14 +396,16 @@ p {
     backdrop-filter: blur(10px);
     border-top: 4px solid #F5EFE0;
     color: #F5EFE0;
-    
-    /* Now it's a proper snap section like all the others */
-    min-height: 100vh !important;
-    padding-top: 120px !important;
+    min-height: 100vh;
+    padding: 120px 0 0 0; /* No bottom padding on footer */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
     box-sizing: border-box;
-    margin-bottom: 2.5rem;
-    scroll-snap-align: center;
-    scroll-snap-stop: always;
+    margin-bottom: 0;
+    /* scroll-snap-align: center; */
+    /* scroll-snap-stop: always; */
 }
 
 .footer-container {
@@ -523,6 +548,14 @@ p {
 /* Media queries */
 /*-------------------*/
 
+/* For tablet view */
+@media screen and (max-width: 992px) {
+    .booking-type-btn {
+        min-height: 140px;
+        padding: 20px 15px;
+    }
+}
+
 /* For mobile view */
 @media screen and (max-width: 768px) {
     /* Disable snap scrolling on mobile */
@@ -547,7 +580,7 @@ p {
         padding-top: 100px !important;
         padding-bottom: 20px;
         margin-bottom: 2rem;
-        scroll-snap-align: start;
+        /* scroll-snap-align: start; */
     }
 
     .navbar {
@@ -598,6 +631,19 @@ p {
     .about-img-float {
         float: none;
         max-width: 90%;
+    }
+
+    .booking-type-btn {
+        min-height: 100px;
+        padding: 12px 8px;
+    }
+
+    .booking-type-btn strong {
+        font-size: 0.85rem;
+    }
+
+    .booking-type-btn small {
+        font-size: 0.75rem;
     }
 
     /* Footer mobile styles */
