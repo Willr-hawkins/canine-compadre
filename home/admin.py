@@ -3,7 +3,34 @@ from django.utils.html import format_html
 from django.urls import reverse
 from django.utils import timezone
 from datetime import date
-from .models import GroupWalk, IndividualWalk, Dog, GroupWalkSlotManager
+from .models import GroupWalk, IndividualWalk, Dog, GroupWalkSlotManager, BookingSettings
+
+@admin.register(BookingSettings)
+class BookingSettingsAdmin(admin.ModelAdmin):
+    fieldsets = (
+        ('Weekend Bookings', {
+            'fields': ('allow_weekend_bookings',),
+            'description': 'control whether customers can book walks on Saturdays and Sundays'
+        }),
+        ('Capacity Settings', {
+            'fields': ('max_dogs_per_booking',),
+            'description': 'Maximum number of dogs allowed per group walk booking'
+        }),
+        ('Time Slot Settings', {
+            'fields': ('allow_evening_slot',),
+            'description': 'Allow bookings for the 6:00 PM - 8:00 PM evening time slot'
+        }),
+    )
+
+    list_display = ['__str__', 'allow_weekend_bookings', 'max_dogs_per_booking', 'allow_evening_slot', 'updated_at']
+
+    def has_add_permission(self, request):
+        # Prevent adding multiple settings instances
+        return not BookingSettings.objects.exists()
+    
+    def has_delete_permission(self, request, obj=None):
+        # Prevent deleting the settigns instance
+        return False
 
 @admin.register(GroupWalk)
 class GroupWalkAdmin(admin.ModelAdmin):

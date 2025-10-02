@@ -17,6 +17,7 @@ urlpatterns = [
     path('api/group-form/', views.api_group_form_template, name='api_group_form_template'),
     path('api/individual-form/', views.api_individual_form_template, name='api_individual_form_template'),
     path('api/unavailable-dates/', views.get_unavailable_dates, name='get_unavailable_dates'),
+    path('api/booking-settings/', views.get_booking_settings, name='get_bookings_settings'),
     
     # Admin views (separate pages for admin use)
     path('management/dashboard/', views.admin_dashboard, name='admin_dashboard'),

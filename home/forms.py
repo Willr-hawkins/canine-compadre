@@ -26,20 +26,29 @@ class GroupWalkForm(forms.ModelForm):
             'customer_postcode': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'EX33 1AA', 'style': 'text-transform: uppercase;'}),
             'booking_date': forms.DateInput(attrs={'class': 'form-control', 'id': 'booking-date', 'readonly': True}),
             'time_slot': forms.Select(attrs={'class': 'form-control', 'id': 'time-slot', 'disabled': True}),
-            'number_of_dogs': forms.NumberInput(attrs={'class': 'form-control', 'min': 1, 'max': 4, 'id': 'num-dogs'}),
+            'number_of_dogs': forms.NumberInput(attrs={'class': 'form-control', 'min': 1, 'id': 'num-dogs'}),
         }
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        
+        # Get max dogs from settings
+        from .models import BookingSettings
+        settings = BookingSettings.get_settings()
+        max_dogs = settings.max_dogs_per_booking
+        
         # Make date and time_slot readonly - they'll be set via JavaScript from calendar
         self.fields['booking_date'].widget.attrs['readonly'] = True
         self.fields['time_slot'].widget.attrs['disabled'] = True
         
+        # Set dynamic max based on settings
+        self.fields['number_of_dogs'].widget.attrs['max'] = max_dogs
+        
         # Set minimum date to tomorrow
         self.fields['booking_date'].widget.attrs['min'] = (date.today() + timedelta(days=1)).isoformat()
         
-        # Updated help text for new time slots
-        self.fields['number_of_dogs'].help_text = "Maximum 4 dogs per individual booking (group walk session limited to 4 dogs total)"
+        # Updated help text with dynamic max
+        self.fields['number_of_dogs'].help_text = f"Maximum {max_dogs} dogs per individual booking (group walk session limited to {max_dogs} dogs total)"
         self.fields['booking_date'].help_text = "Select from available dates in the calendar"
         self.fields['time_slot'].help_text = "Available slots: 09:30 AM - 11:30 AM, 2:00 PM - 4:00 PM, or 6:00 PM - 8:00 PM"
         self.fields['customer_postcode'].help_text = f"We serve: {', '.join(ALLOWED_POSTCODE_AREAS)} (within 10 miles of Croyde, North Devon)"
@@ -78,6 +87,11 @@ class GroupWalkForm(forms.ModelForm):
         number_of_dogs = cleaned_data.get('number_of_dogs')
         
         if booking_date and time_slot and number_of_dogs:
+            # Get max capacity from settings
+            from .models import BookingSettings
+            settings = BookingSettings.get_settings()
+            max_capacity = settings.max_dogs_per_booking
+            
             # Check if there are enough spots available
             existing_bookings = GroupWalk.objects.filter(
                 booking_date=booking_date,
@@ -90,7 +104,7 @@ class GroupWalkForm(forms.ModelForm):
                 existing_bookings = existing_bookings.exclude(pk=self.instance.pk)
             
             total_booked = sum(booking.number_of_dogs for booking in existing_bookings)
-            available_spots = 4 - total_booked
+            available_spots = max_capacity - total_booked
             
             if number_of_dogs > available_spots:
                 raise ValidationError(
@@ -98,6 +112,7 @@ class GroupWalkForm(forms.ModelForm):
                 )
         
         return cleaned_data
+
 
 
 class IndividualWalkForm(forms.ModelForm):

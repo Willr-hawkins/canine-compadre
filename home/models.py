@@ -49,6 +49,48 @@ class BaseBooking(models.Model):
         super().clean()
         self.clean_postcode()
 
+class BookingSettings(models.Model):
+    """ Site-wide booking configuration settings """
+
+    # Weekend settings
+    allow_weekend_bookings = models.BooleanField(
+        default = True,
+        help_text = "Allow bookings on Saturdays and Sundays"
+    )
+
+    # Number of dogs per walk settings
+    max_dogs_per_booking = models.IntegerField(
+        default = 4,
+        validators = [MinValueValidator(1), MaxValueValidator(6)],
+        help_text = "Maximum dogs allowed per group walk booking." 
+    )
+
+    # Evening group slot settings
+    allow_evening_slot = models.BooleanField(
+        default = True,
+        help_text = "Allow bookings for 6:00 PM - 8:00PM evening slot."
+    )
+
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Booking Settings"
+        verbose_name_plural = "Booking Settings"
+    
+    def __Str__(self):
+        return "Booking Settings"
+    
+    def save(self, *args, **kwargs):
+        # Ensure only one settings instance exists
+        self.pk = 1
+        super().save(*args, **kwargs)
+    
+    @classmethod
+    def get_settings(cls):
+        """ Get or create the singleton seetings instance """
+        settings, created = cls.objects.get_or_create(pk=1)
+        return settings 
+
 class GroupWalk(BaseBooking):
     # UPDATED TIME SLOT CHOICES - New times as requested
     TIME_SLOT_CHOICES = [
@@ -68,7 +110,7 @@ class GroupWalk(BaseBooking):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='confirmed')
 
     # Override number_of_dogs validation - individual bookings can be 1-4 dogs, group limit is 4 total
-    number_of_dogs = models.IntegerField(validators=[MinValueValidator(1), MaxValueValidator(4)])
+    number_of_dogs = models.IntegerField(validators=[MinValueValidator(1)])
 
     # Google Calendar Event ID (for integration)
     calendar_event_id = models.CharField(max_length=255, blank=True, null=True)
@@ -90,6 +132,15 @@ class GroupWalk(BaseBooking):
         return f"{self.customer_name} - Group Walk - {self.booking_date} {self.get_time_slot_display()}"
     
     def save(self, *args, **kwargs):
+        # Get booking settings for validation
+        booking_settings = BookingSettings.get_settings()
+
+        # Validate number of dogs against settings
+        if self.number_of_dogs > booking_settings.max_dogs_per_booking:
+            raise ValidationError(
+                f"Maximum {booking_settings.max_dogs_per_booking} dogs allowed per booking."
+            )
+
         # Validate booking date
         if self.booking_date and self.booking_date <= date.today():
             raise ValidationError("Cannot book walks for past dates.")
@@ -188,13 +239,23 @@ class GroupWalk(BaseBooking):
         available_slots = []
         start_date = date.today() + timedelta(days=1)  # Start from tomorrow
 
+        # Get booking settings
+        booking_settings = BookingSettings.get_settings()
+
         for i in range(days_ahead):
             check_date = start_date + timedelta(days=i)
+
+            if not booking_settings.allow_weekend_bookings and check_date.weekday() >= 5:
+                continue
             
             # Skip if this date has slot manager restrictions
             slot_manager = GroupWalkSlotManager.objects.filter(date=check_date).first()
 
             for time_slot, time_display in cls.TIME_SLOT_CHOICES:
+                # Filter out evening slot if disabled in settings
+                if not booking_settings.allow_evening_slot and time_slot == '18:00-20:00':
+                    continue
+
                 # Check if slot is available via slot manager
                 if slot_manager:
                     if time_slot == '09:30-11:30' and not slot_manager.morning_slot_available:
@@ -212,7 +273,7 @@ class GroupWalk(BaseBooking):
                     else:  # evening slot
                         max_capacity = slot_manager.evening_slot_capacity
                 else:
-                    max_capacity = 4
+                    max_capacity = booking_settings.max_dogs_per_booking
 
                 # Calculate current bookings
                 total_booked = cls.objects.filter(

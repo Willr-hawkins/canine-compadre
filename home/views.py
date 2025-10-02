@@ -1065,6 +1065,28 @@ def get_unavailable_dates(request):
             'error': 'Error loading unavailable dates'
         })
 
+@require_http_methods(["GET"])
+def get_booking_settings(request):
+    """ API endpoint to get current booking settings for JavaScript """
+    try:
+        from .models import BookingSettings
+        settings = BookingSettings.get_settings()
+
+        return JsonResponse({
+            'success': True,
+            'settings': {
+                'max_dogs_per_booking': settings.max_dogs_per_booking,
+                'allow_weekend_bookings': settings.allow_weekend_bookings,
+                'allow_evening_slot': settings.allow_evening_slot,
+            }
+        })
+    except Exception as e:
+        logger.error(f"Error getting booking settings: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'error': 'Error loading settings'
+        }, status=500)
+
 def generate_multi_booking_success_html(bookings, email_sent):
     """Generate success HTML for multiple bookings"""
     first_booking = bookings[0]

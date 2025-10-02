@@ -67,6 +67,29 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Main booking elements
     const bookingMainContent = document.getElementById('booking-main-content');
+
+    // Global settings variable
+    let bookingSettings = {
+        max_dogs_per_booking: 4,
+        allow_weekend_bookings: true,
+        allow_evening_slot: true,
+    }
+
+    // Load settings from server
+    async function loadBookingSettings() {
+        try {
+            const response = await fetch('/api/booking-settings/');
+            const data = await response.json();
+            if (data.success) {
+                bookingSettings = data.settings;
+                console.log('Booking settings loaded:', bookingSettings);
+            }
+        } catch (error) {
+            console.error('Error loading booking settings:', error);
+        }
+    }
+
+    loadBookingSettings();
     
     // ===========================================
     // SERVICE SELECTION HANDLERS
@@ -216,6 +239,12 @@ document.addEventListener('DOMContentLoaded', function() {
     function loadBasicGroupForm() {
         const groupForm = document.getElementById('group-walk-form');
         if (!groupForm) return;
+
+        // Generate dog options dynamically based on max_dogs_per_booking
+        let dogOptions = '<option value="">Select number of dogs...</option>';
+        for (let i = 1; i <= bookingSettings.max_dogs_per_booking; i++) {
+            dogOptions += `<option value="${i}">${i} Dog${i > 1 ? 's' : ''}</option>`;
+        }
         
         groupForm.innerHTML = `
             <div class="booking-step" id="step-1-dogs">
@@ -223,11 +252,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div class="row justify-content-center">
                     <div class="col-md-6">
                         <select id="num-dogs-selector" name="number_of_dogs" class="form-select form-select-lg" required>
-                            <option value="">Select number of dogs...</option>
-                            <option value="1">1 Dog</option>
-                            <option value="2">2 Dogs</option>
-                            <option value="3">3 Dogs</option>
-                            <option value="4">4 Dogs</option>
+                            ${dogOptions}
                         </select>
                     </div>
                 </div>
@@ -1398,10 +1423,9 @@ document.addEventListener('DOMContentLoaded', function() {
                         <label for="ind_number_of_dogs" class="form-label">Number of Dogs *</label>
                         <select class="form-control" name="number_of_dogs" id="ind_number_of_dogs" required>
                             <option value="">Select...</option>
-                            <option value="1">1 Dog</option>
-                            <option value="2">2 Dogs</option>
-                            <option value="3">3 Dogs</option>
-                            <option value="4">4 Dogs</option>
+                            ${Array.from({length: bookingSettings.max_dogs_per_booking}, (_, i) => 
+                                `<option value="${i + 1}">${i + 1} Dog${i + 1 > 1 ? 's' : ''}</option>`
+                            ).join('')}
                         </select>
                     </div>
                 </div>
