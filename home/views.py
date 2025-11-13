@@ -14,7 +14,7 @@ from datetime import date, timedelta
 import json
 import logging
 
-from .models import GroupWalk, IndividualWalk, Dog, GroupWalkSlotManager
+from .models import GroupWalk, IndividualWalk, Dog, GroupWalkSlotManager, BookingSettings
 from .forms import (
     GroupWalkForm, IndividualWalkForm, DogForm, 
     GroupWalkDogFormSet, IndividualWalkDogFormSet,
@@ -489,6 +489,9 @@ def individual_walk_booking(request):
 
 def get_availability_calendar(request):
     """AJAX endpoint to get calendar availability data for group walks with slot manager integration"""
+    booking_settings = BookingSettings.get_settings()
+    global_max = booking_settings.max_dogs_per_booking
+
     try:
         days_ahead = int(request.GET.get('days', 180))
         num_dogs = int(request.GET.get('num_dogs', 1))
@@ -546,6 +549,7 @@ def get_availability_calendar(request):
             'availability': availability_data,
             'total_days_with_availability': len(availability_data),
             'requested_dogs': num_dogs,
+            'global_max_capacity': global_max,
         })
         
     except ValueError as e:

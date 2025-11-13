@@ -1,5 +1,6 @@
 from django.contrib import admin
 from django.utils.html import format_html
+from django.db.models import Sum
 from django.urls import reverse
 from django.utils import timezone
 from datetime import date

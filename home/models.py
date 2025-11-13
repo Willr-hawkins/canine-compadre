@@ -165,6 +165,11 @@ class GroupWalk(BaseBooking):
     
     def get_available_spots_for_slot(self):
         """Get available spots for this specific date/time slot"""
+
+        # CRITICAL FIX: Always use global mac from BookingSettings
+        booking_settings = BookingSettings.get_settings()
+        max_capacity = booking_settings.max_dogs_per_booking
+
         total_booked = GroupWalk.objects.filter(
             booking_date=self.booking_date,
             time_slot=self.time_slot,
@@ -173,7 +178,7 @@ class GroupWalk(BaseBooking):
             total=models.Sum('number_of_dogs')
         )['total'] or 0
 
-        return 4 - total_booked
+        return max_capacity - total_booked
     
     def create_calendar_event(self):
         """Create Google Calendar event for this booking"""
@@ -251,6 +256,11 @@ class GroupWalk(BaseBooking):
             # Skip if this date has slot manager restrictions
             slot_manager = GroupWalkSlotManager.objects.filter(date=check_date).first()
 
+            # CRITICAL FIX: ALWAYS use global max capacity
+            # SlotManager capacities are IGNORED for availability calculation
+            # SlotManager only controls on/off availability, not capacity
+            max_capacity = booking_settings.max_dogs_per_booking
+
             for time_slot, time_display in cls.TIME_SLOT_CHOICES:
                 # Filter out evening slot if disabled in settings
                 if not booking_settings.allow_evening_slot and time_slot == '18:00-20:00':
@@ -264,16 +274,6 @@ class GroupWalk(BaseBooking):
                         continue
                     if time_slot == '18:00-20:00' and not slot_manager.evening_slot_available:
                         continue
-                    
-                    # Use custom capacity if set
-                    if time_slot == '09:30-11:30':
-                        max_capacity = slot_manager.morning_slot_capacity
-                    elif time_slot == '14:00-16:00':
-                        max_capacity = slot_manager.afternoon_slot_capacity
-                    else:  # evening slot
-                        max_capacity = slot_manager.evening_slot_capacity
-                else:
-                    max_capacity = booking_settings.max_dogs_per_booking
 
                 # Calculate current bookings
                 total_booked = cls.objects.filter(
@@ -567,17 +567,23 @@ class GroupWalkSlotManager(models.Model):
     morning_slot_capacity = models.IntegerField(
         default=4,
         validators=[MinValueValidator(0), MaxValueValidator(6)],
-        help_text="Maximum dogs for morning slot (0-6)"
+        help_text="⚠️ NOTE: This is ignored for availability calculations. "
+                "Global max from Booking Settings is always used. "
+                "This field is kept for reference only."
     )
     afternoon_slot_capacity = models.IntegerField(
         default=4,
         validators=[MinValueValidator(0), MaxValueValidator(6)],
-        help_text="Maximum dogs for afternoon slot (0-6)"
+        help_text="⚠️ NOTE: This is ignored for availability calculations. "
+                "Global max from Booking Settings is always used. "
+                "This field is kept for reference only."
     )
     evening_slot_capacity = models.IntegerField(
         default=4,
         validators=[MinValueValidator(0), MaxValueValidator(6)],
-        help_text="Maximum dogs for evening slot (0-6)"
+        help_text="⚠️ NOTE: This is ignored for availability calculations. "
+                "Global max from Booking Settings is always used. "
+                "This field is kept for reference only."
     )
 
     notes = models.TextField(
@@ -604,14 +610,76 @@ class GroupWalkSlotManager(models.Model):
         # Validate date is not in the past
         if self.date and self.date < date.today():
             raise ValidationError("Cannot manage slots for past dates.")
+
+        # CRITICAL: Validate capacitites don't exceed global max
+        booking_settings = BookingSettings.get_settings()
+        global_max = booking_settings.max_dogs_per_booking
+
+        errors = {}
         
-        # Validate capacities
+        if self.morning_slot_capacity > global_max:
+            errors['morning_slot_capacity'] = (
+                f"Cannot exceed global maximum of {global_max} dogs "
+                f"(Set in Booking Settings). To increase capacity, update Booking Settings first."
+            )
+        
+        if self.afternoon_slot_capacity > global_max:
+            errors['afternoon_slot_capacity'] = (
+                f"Cannot exceed global maximum of {global_max} dogs "
+                f"(set in Booking Settings). To increase capacity, update Booking Settings first."
+            )
+        
+        if self.evening_slot_capacity > global_max:
+            errors['evening_slot_capacity'] = (
+                f"Cannot exceed global maximum of {global_max} dogs "
+                f"(set in Booking Settings). To increase capacity, update Booking Settings first."
+            )
+        
+        if errors:
+            raise ValidationError(errors)
+        
+        # Validate capacities are not negative
         if self.morning_slot_capacity < 0:
             raise ValidationError("Morning slot capacity cannot be negative.")
         if self.afternoon_slot_capacity < 0:
             raise ValidationError("Afternoon slot capacity cannot be negative.")
         if self.evening_slot_capacity < 0:
             raise ValidationError("Evening slot capacity cannot be negative.")
+
+    def save(self, *args,**kwargs):
+        """Ensure capacities never exceed global settings"""
+        # Run validation
+        self.full_clean()
+        
+        # Get global max and cap any capacities that exceed it (defensive programming)
+        booking_settings = BookingSettings.get_settings()
+        global_max = booking_settings.max_dogs_per_booking
+        
+        # Auto-cap to global max
+        self.morning_slot_capacity = min(self.morning_slot_capacity, global_max)
+        self.afternoon_slot_capacity = min(self.afternoon_slot_capacity, global_max)
+        self.evening_slot_capacity = min(self.evening_slot_capacity, global_max)
+        
+        super().save(*args, **kwargs)
+
+    def get_capacity_for_slot(self, time_slot):
+        """
+        Get the effective capacity for a specific time slot.
+        Returns the LOWER of slot capacity and global max (defensive).
+        """
+
+        booking_settings = BookingSettings.get_settings()
+        global_max = booking_settings.max_dogs_per_booking
+        
+        if time_slot == '09:30-11:30':
+            return min(self.morning_slot_capacity, global_max)
+        elif time_slot == '14:00-16:00':
+            return min(self.afternoon_slot_capacity, global_max)
+        elif time_slot == '18:00-20:00':
+            return min(self.evening_slot_capacity, global_max)
+        
+        return global_max
+
     
     @property
     def morning_bookings_count(self):
