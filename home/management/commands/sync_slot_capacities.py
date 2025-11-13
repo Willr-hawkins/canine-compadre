@@ -10,6 +10,7 @@ Usage:
 
 from django.core.management.base import BaseCommand
 from home.models import GroupWalkSlotManager, BookingSettings
+from datetime import date
 
 class Command(BaseCommand):
     help = 'Sync all GroupWalkSlotManager capacities with global BookingSettings maximum'
@@ -50,6 +51,11 @@ class Command(BaseCommand):
         changes = []
         
         for slot_manager in slot_managers:
+
+            # Skip past dates
+            if slot_manager.date < date.today():
+                continue
+
             slot_changes = []
             original_values = {}
             
