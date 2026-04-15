@@ -184,6 +184,19 @@ class EmailService:
                 dog_names = [dog.name for dog in booking.dogs.all()]
                 dogs_text = ', '.join(dog_names)
 
+                # FIX: Ensure email content includes dog and vet details
+                all_dogs = booking.dogs.all()
+                dog_details = ""
+                for dog in all_dogs:
+                    dog_details += f"""
+🐕 {dog.name} ({dog.breed}, {dog.age_display})
+Good with other dogs: {'Yes' if dog.good_with_other_dogs else 'No'}
+Allergies: {dog.allergies or 'None'}
+Special instructions: {dog.special_instructions or 'None'}
+Behavioral notes: {dog.behavioral_notes or 'None'}
+Vet: {dog.vet_name} - {dog.vet_phone}
+"""
+
                 message = f"""
 New Group Walk Booking Received
 
@@ -196,6 +209,10 @@ Booking Details:
 - Date: {booking.booking_date.strftime('%A, %B %d, %Y')}
 - Time: {booking.get_time_slot_display()}
 - Dogs: {dogs_text} ({booking.number_of_dogs} dog{'s' if booking.number_of_dogs > 1 else ''})
+
+🐾 DOG INFORMATION:
+{dog_details}
+
 - Status: {booking.get_status_display()}
 
 Calendar Event: {"Created" if booking.calendar_event_id else "Failed to create"}
