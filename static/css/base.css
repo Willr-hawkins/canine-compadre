@@ -529,11 +529,27 @@ p {
     margin: 2rem 0 1rem 0;
 }
 
-.footer-copyright,
-.footer-credit {
+.footer-copyright {
     font-size: 0.9rem !important;
     color: #E8E0D0;
     margin-bottom: 0;
+}
+
+.footer-credit {
+    margin: 0.5rem 0;
+    font-size: 0.9rem;
+    opacity: 0.9;
+}
+
+.footer-credit a {
+    color: inherit;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    transition: opacity 0.2s ease;
+}
+
+.footer-credit a:hover {
+    opacity: 0.75;
 }
 
 /* Back to top arrow styling */
