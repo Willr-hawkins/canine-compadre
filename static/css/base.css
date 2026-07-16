@@ -530,8 +530,8 @@ p {
 }
 
 .footer-copyright,
-.footer-shout-out {
-    font-size: 0.9rem;
+.footer-credit {
+    font-size: 0.9rem !important;
     color: #E8E0D0;
     margin-bottom: 0;
 }
