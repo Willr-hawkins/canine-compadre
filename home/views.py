@@ -42,11 +42,11 @@ def group_walk_booking(request):
     """Handle group walk bookings via AJAX - supports multiple slot selection"""
     import uuid
     import json
-    
+
     # Check if this is a multi-booking
     selected_slots_json = request.POST.get('selected_slots')
     is_multi_booking = request.POST.get('is_multi_booking') == 'true'
-    
+
     # Parse selected slots
     selected_slots = []
     if selected_slots_json:
@@ -61,7 +61,6 @@ def group_walk_booking(request):
     
     # If no slots or traditional single booking, fall back to original behavior
     if not selected_slots:
-        # Extract from traditional form fields
         booking_date = request.POST.get('booking_date')
         time_slot = request.POST.get('time_slot')
         if booking_date and time_slot:
@@ -79,7 +78,7 @@ def group_walk_booking(request):
             'errors': {'general': ['Please select at least one time slot']}
         })
     
-    # Validate basic form data
+    # Validate basic customer form data
     customer_data = {
         'customer_name': request.POST.get('customer_name', ''),
         'customer_email': request.POST.get('customer_email', ''),
@@ -88,25 +87,25 @@ def group_walk_booking(request):
         'customer_postcode': request.POST.get('customer_postcode', ''),
         'number_of_dogs': request.POST.get('number_of_dogs', ''),
     }
-    
+
     # Basic validation
     required_fields = ['customer_name', 'customer_email', 'customer_phone', 'customer_address', 'customer_postcode', 'number_of_dogs']
     errors = {}
     for field in required_fields:
         if not customer_data[field]:
             errors[field] = [f'{field.replace("_", " ").title()} is required']
-    
+
     if errors:
         return JsonResponse({
             'success': False,
-            'message': 'Please fill in all required fields',
+            'message': 'Please fill in all required fields' ,
             'errors': errors
         })
     
-    # Handle dog formset data
+    # Handle dog data
     num_dogs = int(customer_data['number_of_dogs'])
     dog_data = []
-    
+
     for i in range(num_dogs):
         dog_info = {
             'name': request.POST.get(f'dog_{i}_name', ''),
@@ -118,17 +117,19 @@ def group_walk_booking(request):
             'behavioral_notes': request.POST.get(f'dog_{i}_behavioral_notes', ''),
             'vet_name': request.POST.get(f'dog_{i}_vet_name', ''),
             'vet_phone': request.POST.get(f'dog_{i}_vet_phone', ''),
-            'vet_address': request.POST.get(f'dog_{i}_vet_address', ''),
+            'vet_address': request.POST.get(f'dog_{i}_vet_address', ''), 
         }
         dog_data.append(dog_info)
-    
+
     # Validate dog data
     for i, dog_info in enumerate(dog_data):
         required_dog_fields = ['name', 'breed', 'age', 'vet_name', 'vet_phone', 'vet_address']
         for field in required_dog_fields:
             if not dog_info[field]:
-                errors[f'dog_{i}_{field}'] = [f'Dog {i+1} {field.replace("_", " ")} is required']
-    
+                errors[f'dog_{i}_{field}'] = [
+                    f'Dog {i+1} {field.replace("_", " ")} is required'
+                ]
+        
     if errors:
         return JsonResponse({
             'success': False,
@@ -137,40 +138,42 @@ def group_walk_booking(request):
         })
     
     try:
+        # ─── PHASE 1: Validate ALL slots before saving anything ───
+        # This prevents partial saves and transaction corruption on large batches
+        validated_forms = []
+        for slot_data in selected_slots:
+            form_data = customer_data.copy()
+            form_data.update({
+                'booking_date': slot_data['date'],
+                'time_slot': slot_data['timeSlot'],
+            })
+
+            form = GroupWalkForm(form_data)
+            if not form.is_valid():
+                slot_errors = {}
+                for field_name, field_errors in form.errors.items():
+                    slot_errors[field_name] = [str(error) for error in field_errors]
+                
+                return JsonResponse({
+                    'success': False,
+                    'message': f'Validation failed for slot {slot_data["dateDisplay"]} '
+                                f'at {slot_data["timeDisplay"]}',
+                    'errors': slot_errors
+                })
+            
+            validated_forms.append((form, slot_data))
+
+        # ─── PHASE 2: All slots valid — save everything in one clean transaction ───
         with transaction.atomic():
             created_bookings = []
             batch_id = str(uuid.uuid4()) if is_multi_booking else None
-            
-            # Create a booking for each selected slot
-            for slot_data in selected_slots:
-                # Create form data for this specific slot
-                form_data = customer_data.copy()
-                form_data.update({
-                    'booking_date': slot_data['date'],
-                    'time_slot': slot_data['timeSlot'],
-                })
-                
-                # Validate this specific slot
-                form = GroupWalkForm(form_data)
-                if not form.is_valid():
-                    # Clean up the form errors and return them properly
-                    slot_errors = {}
-                    for field_name, field_errors in form.errors.items():
-                        clean_errors = [str(error) for error in field_errors]
-                        slot_errors[field_name] = clean_errors
-                    
-                    return JsonResponse({
-                        'success': False,
-                        'message': f'Validation failed for slot {slot_data["dateDisplay"]} at {slot_data["timeDisplay"]}',
-                        'errors': slot_errors
-                    })
-                
-                # Create the booking
+
+            for form, slot_data in validated_forms:
                 booking = form.save(commit=False)
                 if batch_id:
                     booking.batch_id = batch_id
                 booking.save()
-                
+
                 # Create dog records for this booking
                 created_dogs = []
                 for dog_info in dog_data:
@@ -189,80 +192,110 @@ def group_walk_booking(request):
                             vet_address=dog_info['vet_address'],
                         )
                         created_dogs.append(dog)
-                
-                # Verify correct number of dogs
+
                 if len(created_dogs) != booking.number_of_dogs:
-                    raise ValueError(f"Expected {booking.number_of_dogs} dogs, but only {len(created_dogs)} were created")
-                
-                # Create individual calendar event for this booking
-                if not booking.calendar_event_id:
-                    try:
-                        from .calendar_service import GoogleCalendarService
-                        calendar_service = GoogleCalendarService()
-                        event_id = calendar_service.create_group_walk_event(booking)
-                        if event_id:
-                            booking.calendar_event_id = event_id
-                            booking.save(update_fields=['calendar_event_id'])
-                            logger.info(f"Calendar event created for booking {booking.id}: {event_id}")
-                    except Exception as e:
-                        logger.error(f"Error creating calendar event for booking {booking.id}: {str(e)}")
+                    raise ValueError(
+                        f"Expected {booking.number_of_dogs} dogs, "
+                        f"but only {len(created_dogs)} were created"
+                    )
                 
                 created_bookings.append(booking)
-            
-            # Send single email for all bookings
-            customer_email_sent = False
-            if INTEGRATIONS_AVAILABLE:
+        
+        # ─── PHASE 3: Transaction committed — now create calendar events ───
+        # Calendar API calls are external HTTP requests and cannot be rolled back
+        # by Django's transaction system, so they must live outside the transaction.
+        # If the transaction above failed, we never reach this point, so no
+        # orphaned calendar events can be created.
+        for booking in created_bookings:
+            if not booking.calendar_event_id:
                 try:
-                    if is_multi_booking and len(created_bookings) > 1:
-                        # Send multi-booking confirmation email
-                        customer_email_sent = EmailService.send_multi_booking_confirmation(created_bookings)
+                    from .calendar_service import GoogleCalendarService
+                    calendar_service = GoogleCalendarService()
+                    event_id = calendar_service.create_group_walk_event(booking)
+                    if event_id:
+                        booking.calendar_event_id = event_id
+                        booking.save(update_fields=['calendar_event_id'])
+                        logger.info(
+                            f"Calendar event created for booking {booking.id}: {event_id}"
+                        )
                     else:
-                        # Send single booking confirmation
-                        customer_email_sent = EmailService.send_group_walk_confirmation(created_bookings[0])
-                    
-                    if customer_email_sent:
-                        logger.info(f"Confirmation email sent for {len(created_bookings)} booking(s)")
-                    else:
-                        logger.warning(f"Failed to send confirmation email for {len(created_bookings)} booking(s)")
+                        logger.warning(
+                            f"Calendar event returned no ID for booking {booking.id}"
+                        )
                 except Exception as e:
-                    logger.error(f"Error sending confirmation email: {str(e)}")
-                    # Don't let email failure break the booking - set to False and continue
-                    customer_email_sent = False
-            
-            # Send admin notification
-            admin_email_sent = False
-            if INTEGRATIONS_AVAILABLE:
-                try:
-                    if is_multi_booking and len(created_bookings) > 1:
-                        admin_email_sent = EmailService.send_admin_multi_booking_notification(created_bookings)
-                    else:
-                        admin_email_sent = EmailService.send_admin_notification(created_bookings[0], 'group_walk')
-                    
-                    if admin_email_sent:
-                        logger.info(f"Admin notification sent for {len(created_bookings)} booking(s)")
-                except Exception as e:
-                    logger.error(f"Error sending admin notification: {str(e)}")
-            
-            # Generate success response
-            if is_multi_booking and len(created_bookings) > 1:
-                success_html = generate_multi_booking_success_html(created_bookings, customer_email_sent)
-                message = f'{len(created_bookings)} group walk bookings confirmed successfully!'
-            else:
-                booking = created_bookings[0]
-                dog_names = [dog.name for dog in booking.dogs.all()]
-                success_html = generate_single_booking_success_html(booking, dog_names, customer_email_sent)
-                message = 'Group walk booking confirmed successfully!'
-            
-            return JsonResponse({
-                'success': True,
-                'message': message,
-                'html': success_html,
-                'booking_ids': [booking.id for booking in created_bookings],
-                'total_bookings': len(created_bookings),
-                'calendar_events_created': sum(1 for booking in created_bookings if booking.calendar_event_id),
-                'email_sent': customer_email_sent,
-            })
-            
+                    logger.error(
+                        f"Error creating calendar event for booking {booking.id}: {str(e)}"
+                    )
+                    # Booking is already safely saved - log and continue
+
+        # ─── PHASE 4: Send emails ───
+        customer_email_sent = False
+        if INTEGRATIONS_AVAILABLE:
+            try:
+                if is_multi_booking and len(created_bookings) > 1:
+                    customer_email_sent = EmailService.send_multi_booking_confirmation(
+                        created_bookings
+                    )
+                else:
+                    customer_email_sent = EmailService.send_group_walk_confirmation(
+                        created_bookings[0]
+                    )
+                if customer_email_sent:
+                    logger.info(
+                        f"Confirmation email sent for {len(created_bookings)} booking(s)"
+                    )
+                else:
+                    logger.warning(
+                        f"Failed to send confirmation email for {len(created_bookings)} booking(s)"
+                    )
+            except Exception as e:
+                logger.error(f"Error sending confirmation email: {str(e)}")
+                customer_email_sent = False
+        
+        admin_email_sent = False
+        if INTEGRATIONS_AVAILABLE:
+            try:
+                if is_multi_booking and len(created_bookings) > 1:
+                    admin_email_sent = EmailService.send_admin_multi_booking_notification(
+                        created_bookings
+                    )
+                else:
+                    admin_email_sent = EmailService.send_admin_notification(
+                        created_bookings[0], 'group_walk'
+                    )
+                if admin_email_sent:
+                    logger.info(
+                        f"Admin notification sent for {len(created_bookings)} booking(s)"
+                    )
+            except Exception as e:
+                logger.error(f"Error sending admin notifcation: {str(e)}")
+        
+        # ─── PHASE 5: Build and return success response ───
+        if is_multi_booking and len(created_bookings) > 1:
+            success_html = generate_multi_booking_success_html(
+                created_bookings, customer_email_sent
+            ) 
+            message = f'{len(created_bookings)} group walk bookings confirmed successfully!'
+        else:
+            booking = created_bookings[0]
+            dog_names = [dog.name for dog in booking.dogs.all()]
+            success_html = generate_single_booking_success_html(
+                booking, dog_names, customer_email_sent
+            )
+            message = 'Group walk booking confirmed successfully!'
+        
+        return JsonResponse({
+            'success': True,
+            'message': message,
+            'html': success_html,
+            'booking_ids': [booking.id for booking in created_bookings],
+            'total_bookings': len(created_bookings),
+            'calendar_events_created': sum(
+                1 for booking in created_bookings if booking.calendar_event_id
+            ),
+            'email_sent': customer_email_sent,
+        })
+
     except ValidationError as e:
         logger.error(f"Validation error in group walk booking: {str(e)}")
         return JsonResponse({
@@ -281,7 +314,8 @@ def group_walk_booking(request):
         logger.error(f"Unexpected error in group walk booking: {str(e)}")
         return JsonResponse({
             'success': False,
-            'message': 'An error occurred while processing your booking. Please try again or contact us directly.',
+            'message': 'An error occurred while processing your booking. '
+                       'Please try again or contact us directly.',
             'errors': {'general': ['An unexpected error occurred']}
         })
 
