@@ -6,14 +6,20 @@ Run on Render (Shell tab), where the Google credentials live:
     python manage.py check_booking_timeout
     python manage.py check_booking_timeout --walks 60 --limit 15
 
+Or locally, pointing at your own copy of the service-account JSON:
+
+    GOOGLE_CREDENTIALS_PATH=/path/to/google_credentials.json python manage.py check_booking_timeout
+
 What it does:
   1. Picks the N furthest-out available slots (so it never competes with real customers).
   2. POSTs a multi-booking for those slots through the real /book/group/ view,
-     exactly like the website does — validation, DB save, batched Google Calendar
+     exactly like the website does — validation, DB save, Google Calendar
      inserts, and the success response. Emails are mocked out so nobody gets spammed.
   3. Bulk-deletes the test bookings via the real admin "Delete selected" code path,
      which also deletes the real calendar events.
   4. Rolls back the whole database transaction, so no test bookings are left behind.
+  5. Searches the calendar for any leftover "TIMEOUT TEST" events (e.g. from a run
+     that timed out) and deletes them.
 
 PASS means both the booking and the bulk delete finished well inside the gunicorn
 worker timeout, and every booking got a calendar event.
@@ -21,6 +27,7 @@ worker timeout, and every booking got a calendar event.
 
 import json
 import time
+from datetime import datetime, timedelta, timezone
 from unittest import mock
 
 from django.conf import settings
@@ -31,6 +38,8 @@ from django.test import Client
 
 from home.calendar_service import GoogleCalendarService
 from home.models import GroupWalk
+
+TEST_CUSTOMER_NAME = 'TIMEOUT TEST - ignore'
 
 
 class _Rollback(Exception):
@@ -54,14 +63,47 @@ class Command(BaseCommand):
                             help='Max seconds allowed for booking and for deleting (default 20)')
         parser.add_argument('--path', default='/book/group/', help='Group booking URL (default /book/group/)')
 
+    def _cleanup_leftover_test_events(self, skip_ids):
+        """Find and delete any 'TIMEOUT TEST' events still on the calendar."""
+        try:
+            calendar = GoogleCalendarService()
+            if calendar.service is None:
+                return 0
+            now = datetime.now(timezone.utc)
+            found, page_token = [], None
+            while True:
+                resp = calendar.service.events().list(
+                    calendarId=calendar.calendar_id,
+                    q='TIMEOUT TEST',
+                    timeMin=now.isoformat(),
+                    timeMax=(now + timedelta(days=200)).isoformat(),
+                    singleEvents=True,
+                    maxResults=250,
+                    pageToken=page_token,
+                ).execute()
+                found += [
+                    e['id'] for e in resp.get('items', [])
+                    if TEST_CUSTOMER_NAME in e.get('summary', '') and e['id'] not in skip_ids
+                ]
+                page_token = resp.get('nextPageToken')
+                if not page_token:
+                    break
+            if not found:
+                return 0
+            return len(calendar.delete_events_batch(found))
+        except Exception as e:
+            self.stderr.write(f"  couldn't check the calendar for leftover test events: {e}")
+            return 0
+
     def handle(self, *args, **opts):
         walks, limit, path = opts['walks'], opts['limit'], opts['path']
 
         # ── Pre-flight ──
         if GoogleCalendarService().service is None:
             self.stderr.write(self.style.ERROR(
-                "Google Calendar service didn't initialise — run this on Render, where "
-                "/etc/secrets/google_credentials.json exists."
+                "Google Calendar service didn't initialise. On Render this means "
+                "/etc/secrets/google_credentials.json is missing; locally, set "
+                "GOOGLE_CREDENTIALS_PATH to your service-account JSON."
             ))
             return
 
@@ -84,7 +126,7 @@ class Command(BaseCommand):
         post_data = {
             'selected_slots': json.dumps(selected),
             'is_multi_booking': 'true',
-            'customer_name': 'TIMEOUT TEST - ignore',
+            'customer_name': TEST_CUSTOMER_NAME,
             'customer_email': 'timeout-test@example.com',
             'customer_phone': '07000000000',
             'customer_address': '1 Test Lane, Braunton',
@@ -102,9 +144,10 @@ class Command(BaseCommand):
         self.stdout.write(f"Booking {len(selected)} walks via {path} "
                           f"({selected[0]['date']} → {selected[-1]['date']})...")
 
-        booking_ids, booking_secs, delete_secs = [], None, None
+        booking_secs, delete_secs = None, None
         events_created = 0
         result = None
+        handled_event_ids = set()
 
         try:
             with transaction.atomic():
@@ -150,11 +193,15 @@ class Command(BaseCommand):
                                   f"{events_created} calendar events, in {booking_secs:.1f}s")
 
                 # ── 2. Bulk delete through the real admin code path ──
+                test_bookings = GroupWalk.objects.filter(id__in=booking_ids)
+                handled_event_ids = set(
+                    test_bookings.exclude(calendar_event_id__isnull=True)
+                                 .values_list('calendar_event_id', flat=True)
+                )
                 model_admin = admin.site._registry[GroupWalk]
                 start = time.monotonic()
-                model_admin.delete_queryset(None, GroupWalk.objects.filter(id__in=booking_ids))
+                model_admin.delete_queryset(None, test_bookings)
                 delete_secs = time.monotonic() - start
-                booking_ids = []  # events cleaned up
                 self.stdout.write(f"  bulk-deleted bookings + calendar events in {delete_secs:.1f}s")
 
                 # ── 3. Roll everything back ──
@@ -163,14 +210,10 @@ class Command(BaseCommand):
         except _Rollback:
             pass
         finally:
-            # Safety net: if anything went wrong after events were created, remove them.
-            if booking_ids:
-                leftover = list(GroupWalk.objects.filter(id__in=booking_ids)
-                                .exclude(calendar_event_id__isnull=True)
-                                .values_list('calendar_event_id', flat=True))
-                if leftover:
-                    GoogleCalendarService().delete_events_batch(leftover)
-                    self.stdout.write(f"  cleaned up {len(leftover)} leftover calendar events")
+            # ── 4. Safety net: remove any test events still on the calendar ──
+            removed = self._cleanup_leftover_test_events(skip_ids=handled_event_ids)
+            if removed:
+                self.stdout.write(f"  removed {removed} leftover test event(s) from the calendar")
 
         # ── Verdict ──
         if booking_secs is None or result is None or not result.get('success'):

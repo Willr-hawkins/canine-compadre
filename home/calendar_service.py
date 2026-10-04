@@ -1,6 +1,9 @@
 import os
+import time
 import logging
+import threading
 import zoneinfo
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 
 import httplib2
@@ -14,17 +17,20 @@ logger = logging.getLogger(__name__)
 
 LONDON_TZ = zoneinfo.ZoneInfo('Europe/London')
 
-# Google allows up to 50 calls per batch; smaller chunks are kinder to the
-# Calendar API's per-second rate limits.
-BATCH_SIZE = 25
+# Google takes ~1s to process each calendar write, and batch requests are
+# processed one after another on Google's side — so we send calls in parallel
+# instead. 10 at once turns 50 events from ~50s into ~5s.
+MAX_PARALLEL_CALLS = 10
 
-# Per-request socket timeout, so one hung Google call can't hold a gunicorn
-# worker until it gets killed.
-HTTP_TIMEOUT_SECONDS = 20
+# Per-request socket timeout, so one hung Google call can't hold a worker
+# until gunicorn kills it.
+HTTP_TIMEOUT_SECONDS = 15
 
-# If more than this many calls fail inside a batch, don't retry them one by one
-# (Google is probably having a bad moment) — log them and leave them for backfill.
-MAX_INDIVIDUAL_RETRIES = 10
+# Render mounts secret files at /etc/secrets/. Locally, point
+# GOOGLE_CREDENTIALS_PATH at your own copy of the service-account JSON.
+DEFAULT_CREDENTIALS_PATH = '/etc/secrets/google_credentials.json'
+
+SCOPES = ['https://www.googleapis.com/auth/calendar']
 
 GROUP_WALK_TIMES = {
     '09:30-11:30': ('09:30', '11:30'),
@@ -38,33 +44,60 @@ class GoogleCalendarService:
 
     def __init__(self):
         self.calendar_id = settings.GOOGLE_CALENDAR_ID
+        self._local = threading.local()
+        self._credentials = self._load_credentials()
         self.service = self._get_calendar_service()
 
-    def _get_calendar_service(self):
+    # ------------------------------------------------------------------
+    # Setup
+    # ------------------------------------------------------------------
+
+    def _load_credentials(self):
+        credentials_path = os.environ.get('GOOGLE_CREDENTIALS_PATH', DEFAULT_CREDENTIALS_PATH)
+        if not os.path.exists(credentials_path):
+            logger.error(f"Google credentials file not found at: {credentials_path}")
+            return None
         try:
-            # Render secret files are mounted at /etc/secrets/
-            credentials_path = '/etc/secrets/google_credentials.json'
-
-            if not os.path.exists(credentials_path):
-                logger.error(f"Google credentials file not found at: {credentials_path}")
-                return None
-
-            credentials = service_account.Credentials.from_service_account_file(
-                credentials_path,
-                scopes=['https://www.googleapis.com/auth/calendar']
+            return service_account.Credentials.from_service_account_file(
+                credentials_path, scopes=SCOPES
             )
+        except Exception as e:
+            logger.error(f"Error loading Google credentials: {str(e)}")
+            return None
 
-            authed_http = google_auth_httplib2.AuthorizedHttp(
-                credentials,
-                http=httplib2.Http(timeout=HTTP_TIMEOUT_SECONDS),
-            )
-            service = build('calendar', 'v3', http=authed_http, cache_discovery=False)
+    def _build_service(self):
+        """Build a Calendar client with its own HTTP connection (httplib2 isn't thread-safe)."""
+        authed_http = google_auth_httplib2.AuthorizedHttp(
+            self._credentials,
+            http=httplib2.Http(timeout=HTTP_TIMEOUT_SECONDS),
+        )
+        return build('calendar', 'v3', http=authed_http, cache_discovery=False)
+
+    def _get_calendar_service(self):
+        if not self._credentials:
+            return None
+        try:
+            service = self._build_service()
             logger.info("Google Calendar service initialized successfully")
             return service
-
         except Exception as e:
             logger.error(f"Error initializing Google Calendar service: {str(e)}")
             return None
+
+    def _thread_service(self):
+        """One Calendar client per worker thread."""
+        service = getattr(self._local, 'service', None)
+        if service is None:
+            service = self._build_service()
+            self._local.service = service
+        return service
+
+    def _ensure_fresh_token(self):
+        """Refresh the access token once up front, so parallel threads don't all refresh at once."""
+        if not self._credentials.valid:
+            self._credentials.refresh(
+                google_auth_httplib2.Request(httplib2.Http(timeout=HTTP_TIMEOUT_SECONDS))
+            )
 
     # ------------------------------------------------------------------
     # Group walks
@@ -144,9 +177,17 @@ Status: {booking.get_status_display()}''',
             logger.error(f"Error creating group walk calendar event: {str(e)}")
             return None
 
+    def _insert_event(self, body):
+        """Runs in a worker thread. Touches only Google, never the database."""
+        created = self._thread_service().events().insert(
+            calendarId=self.calendar_id,
+            body=body,
+        ).execute(num_retries=1)
+        return created['id']
+
     def create_group_walk_events_batch(self, bookings):
         """
-        Create calendar events for many group walk bookings using batched requests.
+        Create calendar events for many group walk bookings, several at a time in parallel.
         Returns {booking_id: event_id} for every event that was created.
         Bookings that fail are logged and left without an event ID.
         """
@@ -157,60 +198,39 @@ Status: {booking.get_status_display()}''',
             logger.error("Google Calendar service not initialized")
             return results
 
+        # Build every event body here in the main thread (reads dogs from the DB),
+        # so the worker threads only ever talk to Google.
         bodies = {}
         for booking in bookings:
             body = self._build_group_walk_event(booking)
             if body:
                 bodies[booking.id] = body
+        if not bodies:
+            return results
 
-        failed = []
+        try:
+            self._ensure_fresh_token()
+        except Exception as e:
+            logger.error(f"Could not refresh Google credentials: {str(e)}")
+            return results
 
-        def callback(request_id, response, exception):
-            booking_id = int(request_id)
-            if exception is not None:
-                logger.warning(f"Batch insert failed for booking {booking_id}: {exception}")
-                failed.append(booking_id)
-            else:
-                results[booking_id] = response['id']
-
-        booking_ids = list(bodies)
-        for i in range(0, len(booking_ids), BATCH_SIZE):
-            chunk = booking_ids[i:i + BATCH_SIZE]
-            batch = self.service.new_batch_http_request(callback=callback)
-            for booking_id in chunk:
-                batch.add(
-                    self.service.events().insert(
-                        calendarId=self.calendar_id,
-                        body=bodies[booking_id],
-                    ),
-                    request_id=str(booking_id),
-                )
-            try:
-                batch.execute()
-            except Exception as e:
-                logger.error(f"Calendar batch request failed: {str(e)}")
-                failed.extend(
-                    b for b in chunk if b not in results and b not in failed
-                )
-
-        # Retry stragglers individually (with Google's built-in backoff for rate limits)
-        if failed and len(failed) <= MAX_INDIVIDUAL_RETRIES:
-            for booking_id in failed:
+        start = time.monotonic()
+        with ThreadPoolExecutor(max_workers=min(MAX_PARALLEL_CALLS, len(bodies))) as pool:
+            futures = {
+                pool.submit(self._insert_event, body): booking_id
+                for booking_id, body in bodies.items()
+            }
+            for future in as_completed(futures):
+                booking_id = futures[future]
                 try:
-                    created = self.service.events().insert(
-                        calendarId=self.calendar_id,
-                        body=bodies[booking_id],
-                    ).execute(num_retries=2)
-                    results[booking_id] = created['id']
+                    results[booking_id] = future.result()
                 except Exception as e:
-                    logger.error(f"Retry failed creating calendar event for booking {booking_id}: {str(e)}")
-        elif failed:
-            logger.error(
-                f"{len(failed)} calendar events failed in batch; not retrying individually. "
-                f"Booking IDs: {failed}"
-            )
+                    logger.error(f"Calendar event failed for booking {booking_id}: {str(e)}")
 
-        logger.info(f"Created {len(results)}/{len(bodies)} group walk calendar events")
+        logger.info(
+            f"Created {len(results)}/{len(bodies)} group walk calendar events "
+            f"in {time.monotonic() - start:.1f}s"
+        )
         return results
 
     # ------------------------------------------------------------------
@@ -373,9 +393,22 @@ Status: {booking.get_status_display()}'''
             logger.error(f"Error deleting calendar event {event_id}: {str(e)}")
             return False
 
+    def _delete_one(self, event_id):
+        """Runs in a worker thread. Returns True if the event is now gone."""
+        try:
+            self._thread_service().events().delete(
+                calendarId=self.calendar_id,
+                eventId=event_id,
+            ).execute(num_retries=1)
+            return True
+        except HttpError as e:
+            if e.resp.status in (404, 410):
+                return True
+            raise
+
     def delete_events_batch(self, event_ids):
         """
-        Delete many calendar events using batched requests.
+        Delete many calendar events, several at a time in parallel.
         Returns the set of event IDs that are now gone (deleted, or already missing).
         """
         deleted = set()
@@ -386,25 +419,25 @@ Status: {booking.get_status_display()}'''
             logger.error("Google Calendar service not initialized")
             return deleted
 
-        def callback(request_id, response, exception):
-            if exception is None:
-                deleted.add(request_id)
-            elif isinstance(exception, HttpError) and exception.resp.status in (404, 410):
-                deleted.add(request_id)
-            else:
-                logger.warning(f"Batch delete failed for event {request_id}: {exception}")
+        try:
+            self._ensure_fresh_token()
+        except Exception as e:
+            logger.error(f"Could not refresh Google credentials: {str(e)}")
+            return deleted
 
-        for i in range(0, len(event_ids), BATCH_SIZE):
-            batch = self.service.new_batch_http_request(callback=callback)
-            for event_id in event_ids[i:i + BATCH_SIZE]:
-                batch.add(
-                    self.service.events().delete(calendarId=self.calendar_id, eventId=event_id),
-                    request_id=event_id,
-                )
-            try:
-                batch.execute()
-            except Exception as e:
-                logger.error(f"Calendar batch delete failed: {str(e)}")
+        start = time.monotonic()
+        with ThreadPoolExecutor(max_workers=min(MAX_PARALLEL_CALLS, len(event_ids))) as pool:
+            futures = {pool.submit(self._delete_one, event_id): event_id for event_id in event_ids}
+            for future in as_completed(futures):
+                event_id = futures[future]
+                try:
+                    if future.result():
+                        deleted.add(event_id)
+                except Exception as e:
+                    logger.warning(f"Delete failed for calendar event {event_id}: {str(e)}")
 
-        logger.info(f"Deleted {len(deleted)}/{len(event_ids)} calendar events")
+        logger.info(
+            f"Deleted {len(deleted)}/{len(event_ids)} calendar events "
+            f"in {time.monotonic() - start:.1f}s"
+        )
         return deleted
