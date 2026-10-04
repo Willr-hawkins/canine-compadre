@@ -59,8 +59,9 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument('--walks', type=int, default=50, help='Number of walks to book (default 50)')
-        parser.add_argument('--limit', type=float, default=20.0,
-                            help='Max seconds allowed for booking and for deleting (default 20)')
+        parser.add_argument('--limit', type=float, default=60.0,
+                            help='Max seconds allowed for booking and for deleting '
+                                 '(default 60 — half the 120s gunicorn timeout)')
         parser.add_argument('--path', default='/book/group/', help='Group booking URL (default /book/group/)')
 
     def _cleanup_leftover_test_events(self, skip_ids):
@@ -233,6 +234,6 @@ class Command(BaseCommand):
         else:
             self.stdout.write(self.style.SUCCESS(
                 f"PASS — {result['total_bookings']} walks booked in {booking_secs:.1f}s and "
-                f"deleted in {delete_secs:.1f}s (gunicorn's default timeout is 30s). "
+                f"deleted in {delete_secs:.1f}s (gunicorn timeout is 120s). "
                 f"No test data left in the database."
             ))

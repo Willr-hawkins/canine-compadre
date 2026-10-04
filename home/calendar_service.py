@@ -17,10 +17,16 @@ logger = logging.getLogger(__name__)
 
 LONDON_TZ = zoneinfo.ZoneInfo('Europe/London')
 
-# Google takes ~1s to process each calendar write, and batch requests are
-# processed one after another on Google's side — so we send calls in parallel
-# instead. 10 at once turns 50 events from ~50s into ~5s.
-MAX_PARALLEL_CALLS = 10
+# Google caps writes to a single calendar at roughly 2 per second, however
+# they're sent (batched, parallel or one by one). 3 parallel calls keeps us
+# at that ceiling without triggering "Rate Limit Exceeded" errors; any that
+# do get rate-limited are retried with backoff. Expect ~0.5s per event,
+# e.g. ~25s for 50 walks — well inside the 120s gunicorn timeout.
+MAX_PARALLEL_CALLS = 3
+
+# Retries for rate-limited (403 rateLimitExceeded) or 5xx responses.
+# googleapiclient backs off exponentially between attempts.
+PARALLEL_CALL_RETRIES = 4
 
 # Per-request socket timeout, so one hung Google call can't hold a worker
 # until gunicorn kills it.
@@ -182,7 +188,7 @@ Status: {booking.get_status_display()}''',
         created = self._thread_service().events().insert(
             calendarId=self.calendar_id,
             body=body,
-        ).execute(num_retries=1)
+        ).execute(num_retries=PARALLEL_CALL_RETRIES)
         return created['id']
 
     def create_group_walk_events_batch(self, bookings):
@@ -399,7 +405,7 @@ Status: {booking.get_status_display()}'''
             self._thread_service().events().delete(
                 calendarId=self.calendar_id,
                 eventId=event_id,
-            ).execute(num_retries=1)
+            ).execute(num_retries=PARALLEL_CALL_RETRIES)
             return True
         except HttpError as e:
             if e.resp.status in (404, 410):
