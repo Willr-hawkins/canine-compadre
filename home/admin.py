@@ -53,6 +53,26 @@ class GroupWalkAdmin(admin.ModelAdmin):
         })
     )
 
+    def delete_queryset(self, request, queryset):
+        """
+        Bulk 'Delete selected' action — remove the Google Calendar events in
+        batches instead of one HTTP call per booking (which timed out on large selections).
+        """
+        from .calendar_service import GoogleCalendarService
+
+        event_ids = list(
+            queryset.exclude(calendar_event_id__isnull=True)
+                    .exclude(calendar_event_id='')
+                    .values_list('calendar_event_id', flat=True)
+        )
+        if event_ids:
+            deleted = GoogleCalendarService().delete_events_batch(event_ids)
+            # Clear the IDs we've handled so the post_delete signal skips them.
+            # Anything that failed still falls back to the per-booking signal.
+            queryset.filter(calendar_event_id__in=deleted).update(calendar_event_id=None)
+
+        super().delete_queryset(request, queryset)
+
 @admin.register(IndividualWalk)
 class IndividualWalkAdmin(admin.ModelAdmin):
     list_display = ['customer_name', 'preferred_date', 'preferred_time', 'status', 'created_at']
@@ -196,7 +216,7 @@ class GroupWalkSlotManagerAdmin(admin.ModelAdmin):
             # check what slots were disabled
             cancelled_slots = []
             if original.morning_slot_available and not obj.morning_slot_available:
-                cancelled_slots.append('10:00-12:00')
+                cancelled_slots.append('09:30-11:30')
             if original.afternoon_slot_available and not obj.afternoon_slot_available:
                 cancelled_slots.append('14:00-16:00')
             if original.evening_slot_available and not obj.evening_slot_available:
@@ -219,4 +239,4 @@ class GroupWalkSlotManagerAdmin(admin.ModelAdmin):
 # Customize the admin site
 admin.site.site_header = "Canine Compadre Administration"
 admin.site.site_title = "Canine Compadre Admin"
-admin.site.index_title = "Welcome to Canine Compadre Administartion"
+admin.site.index_title = "Welcome to Canine Compadre Administration"

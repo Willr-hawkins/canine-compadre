@@ -3,6 +3,7 @@ Utility functions for Canine Compadre booking system
 """
 
 import logging
+from datetime import date as date_cls, timedelta
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
 from django.conf import settings
@@ -17,7 +18,7 @@ def cancel_bookings_for_unavailable_slots(date, cancelled_time_slots, reason="Da
     
     Args:
         date: The date to cancel bookings for
-        cancelled_time_slots: List of time slots to cancel (e.g., ['10:00-12:00', '14:00-16:00'])
+        cancelled_time_slots: List of time slots to cancel (e.g., ['09:30-11:30', '14:00-16:00'])
         reason: Reason for cancellation to include in emails
     
     Returns:
@@ -44,13 +45,13 @@ def cancel_bookings_for_unavailable_slots(date, cancelled_time_slots, reason="Da
                 try:
                     booking.delete_calendar_event()
                 except Exception as e:
-                    logger.error(f"Failed to delete calendar even for booking {booking.id}: {str(e)}")
+                    logger.error(f"Failed to delete calendar event for booking {booking.id}: {str(e)}")
             
             # Send cancellation email to customer
             send_cancellation_email(booking, reason)
 
             cancelled_count += 1
-            logger.info(f"Cancelled booking {booking.id} for {booking.cusomter_name} on {date}")
+            logger.info(f"Cancelled booking {booking.id} for {booking.customer_name} on {date}")
 
         except Exception as e:
             logger.error(f"Error cancelling booking {booking.id}: {str(e)}")
@@ -111,7 +112,7 @@ Canine Compadre
 This is an automated message. If you have any questions, please contact us directly.
         """
 
-        # Send the eamil
+        # Send the email
         send_mail(
             subject=subject,
             message=message,
@@ -140,11 +141,8 @@ def get_alternative_dates(cancelled_date, num_dogs=1, days_ahead=14):
         list: Available alternative slots
     """
     
-    from datetime import timedelta
-    from .models import GroupWalk
-    
     # Get available slots starting from the day after cancellation
-    start_date = max(cancelled_date + timedelta(days=1), date.today() + timedelta(days=1))
+    start_date = max(cancelled_date + timedelta(days=1), date_cls.today() + timedelta(days=1))
     
     try:
         alternative_slots = GroupWalk.get_available_slots(

@@ -90,7 +90,7 @@ def mark_date_unavailable(request):
         
         if 'morning' in slots_to_disable and slot_manager.morning_slot_available:
             slot_manager.morning_slot_available = False
-            cancelled_slots.append('10:00-12:00')
+            cancelled_slots.append('09:30-11:30')
         
         if 'afternoon' in slots_to_disable and slot_manager.afternoon_slot_available:
             slot_manager.afternoon_slot_available = False

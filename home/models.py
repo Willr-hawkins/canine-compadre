@@ -77,7 +77,7 @@ class BookingSettings(models.Model):
         verbose_name = "Booking Settings"
         verbose_name_plural = "Booking Settings"
     
-    def __Str__(self):
+    def __str__(self):
         return "Booking Settings"
     
     def save(self, *args, **kwargs):
@@ -92,11 +92,10 @@ class BookingSettings(models.Model):
         return settings 
 
 class GroupWalk(BaseBooking):
-    # UPDATED TIME SLOT CHOICES - New times as requested
     TIME_SLOT_CHOICES = [
-        ('09:30-11:30', '09:30 AM - 11:30 PM'),
+        ('09:30-11:30', '09:30 AM - 11:30 AM'),
         ('14:00-16:00', '2:00 PM - 4:00 PM'),
-        ('18:00-20:00', '6:00 PM - 8:00 PM'),  # NEW EVENING SLOT
+        ('18:00-20:00', '6:00 PM - 8:00 PM'),
     ]
 
     STATUS_CHOICES = [
@@ -158,15 +157,12 @@ class GroupWalk(BaseBooking):
                 )
         
         super().save(*args, **kwargs)
-        
-        # Create calendar event after saving if this is a new confirmed booking
-        #if not kwargs.get('update_fields') and self.status == 'confirmed' and not self.calendar_event_id:
-        #    self.create_calendar_event()
+        # Calendar events are created in the booking view (batched), not here.
     
     def get_available_spots_for_slot(self):
         """Get available spots for this specific date/time slot"""
 
-        # CRITICAL FIX: Always use global mac from BookingSettings
+        # Always use global max from BookingSettings
         booking_settings = BookingSettings.get_settings()
         max_capacity = booking_settings.max_dogs_per_booking
 
@@ -256,9 +252,8 @@ class GroupWalk(BaseBooking):
             # Skip if this date has slot manager restrictions
             slot_manager = GroupWalkSlotManager.objects.filter(date=check_date).first()
 
-            # CRITICAL FIX: ALWAYS use global max capacity
-            # SlotManager capacities are IGNORED for availability calculation
-            # SlotManager only controls on/off availability, not capacity
+            # ALWAYS use global max capacity.
+            # SlotManager only controls on/off availability, not capacity.
             max_capacity = booking_settings.max_dogs_per_booking
 
             for time_slot, time_display in cls.TIME_SLOT_CHOICES:
@@ -337,7 +332,7 @@ class IndividualWalk(BaseBooking):
         ('completed', 'Completed'),
     ]
 
-    # UPDATED restricted time slots for individual walks (new group walk times + 1 hour buffer)
+    # Restricted time slots for individual walks (group walk times + 1 hour buffer)
     RESTRICTED_TIME_RANGES = [
         ('08:30-12:30', '8:30 AM - 12:30 PM (Group Walk + buffer)'),    # 9:30-11:30 + 1hr buffer each side
         ('13:00-17:00', '1:00 PM - 5:00 PM (Group Walk + buffer)'),    # 14-16 + 1hr buffer each side  
@@ -491,7 +486,7 @@ class IndividualWalk(BaseBooking):
             if any(safe_choice in preferred_lower for safe_choice in safe_choices):
                 return  # Skip time restriction validation for safe choices
 
-            # Updated validation patterns for new restricted times
+            # Validation patterns for restricted times
             morning_restricted = ['08:', '09:', '10:', '11:', '12:', '8am', '9am', '10am', '11am', '12pm', 'noon', 'midday']
             afternoon_restricted = ['13:', '14:', '15:', '16:', '1pm', '2pm', '3pm', '4pm']
             evening_restricted = ['17:', '18:', '19:', '20:', '5pm', '6pm', '7pm', '8pm']
@@ -546,13 +541,12 @@ class IndividualWalk(BaseBooking):
         return self.status == 'rejected'
 
 
-# Updated GroupWalkSlotManager to handle the new evening slot
 class GroupWalkSlotManager(models.Model):
-    """Admin model to manage group walk availability - UPDATED for 3 time slots"""
+    """Admin model to manage group walk availability across the 3 time slots"""
     date = models.DateField(unique=True)
     morning_slot_available = models.BooleanField(
         default=True, 
-        help_text="09:30 AM - 11:30 PM slot available"
+        help_text="09:30 AM - 11:30 AM slot available"
     )
     afternoon_slot_available = models.BooleanField(
         default=True, 
@@ -611,7 +605,7 @@ class GroupWalkSlotManager(models.Model):
         if self.date and self.date < date.today():
             raise ValidationError("Cannot manage slots for past dates.")
 
-        # CRITICAL: Validate capacitites don't exceed global max
+        # Validate capacities don't exceed global max
         booking_settings = BookingSettings.get_settings()
         global_max = booking_settings.max_dogs_per_booking
 
@@ -754,7 +748,6 @@ class GroupWalkSlotManager(models.Model):
         return slot_manager, created
 
 
-# Rest of the models remain the same...
 class Dog(models.Model):
     """Dog details - can belong to either group or individual walk"""
 
@@ -868,7 +861,11 @@ class Dog(models.Model):
 
 @receiver(post_delete, sender=GroupWalk)
 def delete_group_walk_calendar_event(sender, instance, **kwargs):
-    """Delete calendar event when GroupWalk is deleted"""
+    """
+    Delete calendar event when a single GroupWalk is deleted.
+    Bulk deletes from the admin clear calendar_event_id first (batched in
+    GroupWalkAdmin.delete_queryset), so this only fires for leftovers.
+    """
     if instance.calendar_event_id:
         try:
             from .calendar_service import GoogleCalendarService

@@ -2,6 +2,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.http import JsonResponse, Http404
 from django.contrib import messages
 from django.db import transaction
+from django.db.models import prefetch_related_objects
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
@@ -201,32 +202,32 @@ def group_walk_booking(request):
                 
                 created_bookings.append(booking)
         
-        # ─── PHASE 3: Transaction committed — now create calendar events ───
+        # ─── PHASE 3: Transaction committed — create calendar events in batches ───
         # Calendar API calls are external HTTP requests and cannot be rolled back
         # by Django's transaction system, so they must live outside the transaction.
-        # If the transaction above failed, we never reach this point, so no
-        # orphaned calendar events can be created.
-        for booking in created_bookings:
-            if not booking.calendar_event_id:
-                try:
-                    from .calendar_service import GoogleCalendarService
-                    calendar_service = GoogleCalendarService()
-                    event_id = calendar_service.create_group_walk_event(booking)
-                    if event_id:
-                        booking.calendar_event_id = event_id
-                        booking.save(update_fields=['calendar_event_id'])
-                        logger.info(
-                            f"Calendar event created for booking {booking.id}: {event_id}"
-                        )
-                    else:
-                        logger.warning(
-                            f"Calendar event returned no ID for booking {booking.id}"
-                        )
-                except Exception as e:
-                    logger.error(
-                        f"Error creating calendar event for booking {booking.id}: {str(e)}"
-                    )
-                    # Booking is already safely saved - log and continue
+        # They are sent as batched requests (25 events per HTTP call) so that large
+        # multi-bookings don't exceed the gunicorn worker timeout.
+        prefetch_related_objects(created_bookings, 'dogs')  # one query instead of one per booking
+
+        if INTEGRATIONS_AVAILABLE:
+            try:
+                calendar_service = GoogleCalendarService()  # initialised once per request
+                event_ids = calendar_service.create_group_walk_events_batch(created_bookings)
+
+                for booking in created_bookings:
+                    booking.calendar_event_id = event_ids.get(booking.id)
+
+                bookings_with_events = [b for b in created_bookings if b.calendar_event_id]
+                if bookings_with_events:
+                    # bulk_update skips GroupWalk.save(), so validation isn't re-run per booking
+                    GroupWalk.objects.bulk_update(bookings_with_events, ['calendar_event_id'])
+
+                missing = len(created_bookings) - len(bookings_with_events)
+                if missing:
+                    logger.warning(f"{missing} booking(s) saved without calendar events")
+            except Exception as e:
+                logger.error(f"Error creating calendar events: {str(e)}")
+                # Bookings are already safely saved - log and continue
 
         # ─── PHASE 4: Send emails ───
         customer_email_sent = False
@@ -268,7 +269,7 @@ def group_walk_booking(request):
                         f"Admin notification sent for {len(created_bookings)} booking(s)"
                     )
             except Exception as e:
-                logger.error(f"Error sending admin notifcation: {str(e)}")
+                logger.error(f"Error sending admin notification: {str(e)}")
         
         # ─── PHASE 5: Build and return success response ───
         if is_multi_booking and len(created_bookings) > 1:
